@@ -14,8 +14,7 @@ export default defineConfig({
     postcss: {
       plugins: [
         // PostCSS plugins if needed
-      ],
-  base: '/tripure/'
+      ]
     },
   },
 })
