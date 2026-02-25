@@ -9,6 +9,7 @@ export default defineConfig({
     tailwindcss(),
   ],
   
+  
   // You can add theme customization here if needed
   css: {
     postcss: {
@@ -17,4 +18,5 @@ export default defineConfig({
       ]
     },
   },
+  base: process.env.VITE_BASE_PATH || "/tripure"
 })
