@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
-  const { user, hasPermission } = useAuth();
+  const { user } = useAuth();
+  const [expandedMenus, setExpandedMenus] = useState({});
 
   const menuItems = [
     {
@@ -15,7 +16,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         </svg>
       ),
       path: '/admin/dashboard',
-      permission: 'view_dashboard'
     },
     {
       title: 'Products',
@@ -24,8 +24,11 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
         </svg>
       ),
-      path: '/admin/products',
-      permission: 'manage_products'
+      children: [
+        { title: 'All Products', path: '/admin/products' },
+        { title: 'Add Product', path: '/admin/products/add' },
+        { title: 'Categories', path: '/admin/products/categories' },
+      ]
     },
     {
       title: 'Inventory',
@@ -34,8 +37,11 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
         </svg>
       ),
-      path: '/admin/inventory',
-      permission: 'manage_inventory'
+      children: [
+        { title: 'Stock Levels', path: '/admin/inventory' },
+        { title: 'Add Stock', path: '/admin/inventory/add' },
+        { title: 'Low Stock Alert', path: '/admin/inventory/alerts' },
+      ]
     },
     {
       title: 'Orders',
@@ -44,8 +50,11 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
         </svg>
       ),
-      path: '/admin/orders',
-      permission: 'manage_orders'
+      children: [
+        { title: 'All Orders', path: '/admin/orders' },
+        { title: 'Pending Orders', path: '/admin/orders/pending' },
+        { title: 'Completed', path: '/admin/orders/completed' },
+      ]
     },
     {
       title: 'Customers',
@@ -55,7 +64,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         </svg>
       ),
       path: '/admin/customers',
-      permission: 'view_customers'
     },
     {
       title: 'Users',
@@ -65,8 +73,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         </svg>
       ),
       path: '/admin/users',
-      permission: 'manage_users',
-      adminOnly: true
     },
     {
       title: 'Reports',
@@ -75,8 +81,11 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
       ),
-      path: '/admin/reports',
-      permission: 'view_reports'
+      children: [
+        { title: 'Sales Report', path: '/admin/reports/sales' },
+        { title: 'Inventory Report', path: '/admin/reports/inventory' },
+        { title: 'Customer Report', path: '/admin/reports/customers' },
+      ]
     },
     {
       title: 'Settings',
@@ -86,72 +95,148 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
       ),
-      path: '/admin/settings',
-      permission: 'manage_settings'
+      children: [
+        { title: 'General', path: '/admin/settings' },
+        { title: 'Profile', path: '/admin/settings/profile' },
+      ]
     }
   ];
 
-  const filteredMenu = menuItems.filter(item => 
-    !item.adminOnly || (item.adminOnly && user?.role === 'super_admin')
-  );
+  const toggleMenu = (title) => {
+    setExpandedMenus(prev => ({
+      ...prev,
+      [title]: !prev[title]
+    }));
+  };
 
   return (
     <>
       {/* Mobile Overlay */}
-      {sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.5 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black z-20 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Sidebar */}
       <motion.aside
         initial={{ x: -280 }}
         animate={{ x: sidebarOpen ? 0 : -280 }}
         transition={{ duration: 0.3 }}
-        className={`fixed lg:static top-0 left-0 z-30 h-full w-64 bg-white shadow-lg overflow-y-auto`}
+        className="fixed lg:static top-0 left-0 z-30 h-full w-64 bg-white shadow-lg overflow-y-auto"
       >
-        {/* Logo */}
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-light text-gray-800">Tripure<span className="text-blue-600">Admin</span></h2>
-          <p className="text-xs text-gray-500 mt-1">Welcome, {user?.name}</p>
+        {/* Logo - Mobile Close Button */}
+        <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-light text-gray-800">Tripure<span className="text-blue-600">Admin</span></h2>
+            <p className="text-xs text-gray-500 mt-1">{user?.name || 'Admin'}</p>
+          </div>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden p-2 hover:bg-gray-100 rounded-lg"
+          >
+            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         {/* Navigation */}
-        <nav className="p-4 space-y-1">
-          {filteredMenu.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all duration-200 ${
-                  isActive
-                    ? 'bg-blue-50 text-blue-600'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600'
-                }`
-              }
-              onClick={() => setSidebarOpen(false)}
-            >
-              {item.icon}
-              <span>{item.title}</span>
-            </NavLink>
+        <nav className="p-3">
+          {menuItems.map((item) => (
+            <div key={item.title} className="mb-1">
+              {item.children ? (
+                // Menu with children (dropdown)
+                <div>
+                  <button
+                    onClick={() => toggleMenu(item.title)}
+                    className="w-full flex items-center justify-between px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-gray-500">{item.icon}</span>
+                      <span>{item.title}</span>
+                    </div>
+                    <svg
+                      className={`w-4 h-4 transition-transform duration-200 ${
+                        expandedMenus[item.title] ? 'rotate-180' : ''
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  
+                  <AnimatePresence>
+                    {expandedMenus[item.title] && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden pl-11"
+                      >
+                        {item.children.map((child) => (
+                          <NavLink
+                            key={child.path}
+                            to={child.path}
+                            className={({ isActive }) =>
+                              `block py-2 px-3 text-sm rounded-lg transition-colors ${
+                                isActive
+                                  ? 'text-blue-600 bg-blue-50'
+                                  : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                              }`
+                            }
+                          >
+                            {child.title}
+                          </NavLink>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ) : (
+                // Single menu item
+                <NavLink
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors ${
+                      isActive
+                        ? 'text-blue-600 bg-blue-50'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`
+                  }
+                >
+                  <span className="text-gray-500">{item.icon}</span>
+                  <span>{item.title}</span>
+                </NavLink>
+              )}
+            </div>
           ))}
         </nav>
 
-        {/* User Info */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 bg-white">
-          <div className="flex items-center gap-3">
+        {/* User Menu at Bottom */}
+        <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-gray-200 bg-white">
+          <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
             <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-full flex items-center justify-center">
               <span className="text-white text-sm font-medium">
-                {user?.name?.charAt(0) || 'U'}
+                {user?.name?.charAt(0) || 'A'}
               </span>
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-gray-700">{user?.name}</p>
-              <p className="text-xs text-gray-500 capitalize">{user?.role?.replace('_', ' ')}</p>
+            <div className="flex-1 text-left">
+              <p className="font-medium text-gray-700">{user?.name || 'Admin User'}</p>
+              <p className="text-xs text-gray-500 capitalize">{user?.role || 'admin'}</p>
             </div>
-          </div>
+            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </button>
         </div>
       </motion.aside>
     </>
