@@ -18,13 +18,14 @@ const Navbar = () => {
     setMobileMenuOpen(false);
   }, [location]);
 
-  const navLinks = [
+const navLinks = [
     { name: 'Home', path: '/' },
     { name: 'About', path: '/about' },
+    { name: 'Products', path: '/products' },
     { name: 'Vatistsa', path: '/vatistsa' },
     { name: 'Le Blue', path: '/le-blue' },
     { name: 'Contact', path: '/contact' },
-  ];
+];;
 
   const isActive = (path) => {
     if (path === '/' && location.pathname === '/') return true;

@@ -1,0 +1,43 @@
+Database Name : wbinjagxas_tripure_db
+
+Database User : wbinjagxas_ahsawwn
+
+Database Password : TsIt6tMkc2O%
+
+
+
+FTP 
+
+
+FTP Username : ahsawwn
+FTP Password : Tripure@1433
+
+/home/wbinjagxas/tripure.rookies-demo.online/ahsawwn
+
+tripure.rookies-demo.online
+
+ahsawwn@tripure.rookies-demo.online
+
+
+tripure-key
+
+Tripure@1433
+
+Access Details:
+Server IP:	66.29.148.155
+Username:	wbinjagxas
+SSH port:	21098
+SSH KEY PASS : Tripure@1433
+
+
+
+
+# 1. Activate environment
+source /home/wbinjagxas/nodevenv/tripure.rookies-demo.online/backend/tirpure-api/24/bin/activate
+
+# 2. Go to app directory
+cd /home/wbinjagxas/tripure.rookies-demo.online/backend/tirpure-api
+
+# 3. Now you can use PM2
+pm2 status
+pm2 logs tripure-api
