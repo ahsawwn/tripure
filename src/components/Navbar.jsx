@@ -25,6 +25,7 @@ const navLinks = [
     { name: 'Vatistsa', path: '/vatistsa' },
     { name: 'Le Blue', path: '/le-blue' },
     { name: 'Contact', path: '/contact' },
+    { name: 'Bulk Order', path: '/bulk-order' },
 ];;
 
   const isActive = (path) => {

@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './admin/contexts/AuthContext';
 import ProtectedRoute from './admin/auth/ProtectedRoute';
+import { SearchProvider } from './admin/contexts/SearchContext';
+import { NotificationProvider } from './admin/contexts/NotificationContext';
 
 // Public Pages
 import Home from './pages/Home';
@@ -11,6 +13,7 @@ import Vatistsa from './pages/Vatistsa';
 import LeBlue from './pages/LeBlue';
 import About from './pages/About';
 import Contact from './pages/Contact';
+import BulkOrder from './pages/BulkOrder';
 import ComingSoon from './components/ComingSoon';
 
 // Admin Pages
@@ -25,6 +28,13 @@ import UserList from './admin/pages/Users/UserList';
 import Reports from './admin/pages/Reports/SalesReport';
 import ContactList from './admin/pages/Contacts/ContactList';
 import ContactDetails from './admin/pages/Contacts/ContactDetails';
+import BulkOrderList from './admin/pages/BulkOrders/BulkOrderList';
+import BulkOrderDetails from './admin/pages/BulkOrders/BulkOrderDetails';
+import SendQuote from './admin/pages/BulkOrders/SendQuote';
+import MessagesList from './admin/pages/Messages/MessagesList';
+import MessageDetail from './admin/pages/Messages/MessageDetail';
+import ComposeMessage from './admin/pages/Messages/ComposeMessage';
+import MessageTemplates from './admin/pages/Messages/MessageTemplates';
 
 // Styles
 import './index.css';
@@ -33,6 +43,8 @@ function App() {
     return (
         <Router>
             <AuthProvider>
+                 <NotificationProvider>
+                <SearchProvider>
                 <Toaster 
                     position="top-right"
                     toastOptions={{
@@ -53,6 +65,7 @@ function App() {
                     <Route path="/products" element={<Products />} />
                     <Route path="/vatistsa" element={<Vatistsa />} />
                     <Route path="/le-blue" element={<LeBlue />} />
+                    <Route path="/bulk-order" element={<BulkOrder />} />
                     <Route path="/get-quote" element={<ComingSoon pageName="Get a Quote" />} />
 
                     {/* Admin Auth */}
@@ -75,12 +88,29 @@ function App() {
                                 <Route index element={<ContactList />} />
                                 <Route path=":id" element={<ContactDetails />} />
                             </Route>
+                            <Route path="bulk-orders">
+                                <Route index element={<BulkOrderList />} />
+                                <Route path=":id" element={<BulkOrderDetails />} />
+                                <Route path=":id/quote" element={<SendQuote />} />
+                            </Route>
+                            <Route path="messages">
+                                <Route index element={<MessagesList />} />
+                                <Route path=":id" element={<MessageDetail />} />
+                            </Route>
+                            <Route path="messages">
+    <Route index element={<MessagesList />} />
+    <Route path="compose" element={<ComposeMessage />} />
+    <Route path="templates" element={<MessageTemplates />} />
+    <Route path=":id" element={<MessageDetail />} />
+</Route>
                         </Route>
                     </Route>
 
                     {/* 404 */}
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
+                </SearchProvider>
+                    </NotificationProvider>
             </AuthProvider>
         </Router>
     );

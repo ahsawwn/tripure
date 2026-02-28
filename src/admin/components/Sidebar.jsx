@@ -1,32 +1,56 @@
-import React, { useState } from 'react';
-import { NavLink } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import React, { useState, useEffect } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNotifications } from '../contexts/NotificationContext';
 
-const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
-    const { user } = useAuth();
-    const [expandedMenus, setExpandedMenus] = useState({});
+const Sidebar = ({ isExpanded, isMobile, isMobileOpen, closeSidebar, toggleSidebar }) => {
+    const location = useLocation();
+    const [openMenu, setOpenMenu] = useState(null);
+    const { unreadCount = 0 } = useNotifications() || {};
+
+    // Helper function to check if a single menu item is active
+    const isSingleMenuItemActive = (itemPath) => {
+        return location.pathname === itemPath;
+    };
 
     const menuItems = [
         {
             title: 'Dashboard',
             icon: (
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                 </svg>
             ),
-            path: '/admin/dashboard',
+            path: '/admin/dashboard'
         },
         {
-            title: 'Contacts',
+            title: 'Messages',
             icon: (
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                 </svg>
             ),
+            badge: unreadCount,
             children: [
-                { title: 'All Messages', path: '/admin/contacts' },
-                { title: 'New Messages', path: '/admin/contacts?status=new' },
+                { title: 'All Messages', path: '/admin/messages' },
+                { title: 'Unread', path: '/admin/messages?status=new' },
+                { title: 'Urgent', path: '/admin/messages?priority=urgent' },
+                { title: 'Archived', path: '/admin/messages?status=archived' }
+            ]
+        },
+        {
+            title: 'Bulk Orders',
+            icon: (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+            ),
+            badge: 3,
+            children: [
+                { title: 'All Orders', path: '/admin/bulk-orders' },
+                { title: 'Pending', path: '/admin/bulk-orders?status=pending' },
+                { title: 'Quoted', path: '/admin/bulk-orders?status=quoted' },
+                { title: 'Completed', path: '/admin/bulk-orders?status=completed' }
             ]
         },
         {
@@ -40,19 +64,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
                 { title: 'All Products', path: '/admin/products' },
                 { title: 'Add Product', path: '/admin/products/add' },
                 { title: 'Categories', path: '/admin/products/categories' },
-            ]
-        },
-        {
-            title: 'Inventory',
-            icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-            ),
-            children: [
-                { title: 'Stock Levels', path: '/admin/inventory' },
-                { title: 'Add Stock', path: '/admin/inventory/add' },
-                { title: 'Low Stock Alert', path: '/admin/inventory/alerts' },
+                { title: 'Inventory', path: '/admin/inventory' }
             ]
         },
         {
@@ -62,10 +74,13 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                 </svg>
             ),
+            badge: 2,
             children: [
                 { title: 'All Orders', path: '/admin/orders' },
-                { title: 'Pending Orders', path: '/admin/orders/pending' },
+                { title: 'Pending', path: '/admin/orders/pending' },
+                { title: 'Processing', path: '/admin/orders/processing' },
                 { title: 'Completed', path: '/admin/orders/completed' },
+                { title: 'Cancelled', path: '/admin/orders/cancelled' }
             ]
         },
         {
@@ -75,16 +90,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
             ),
-            path: '/admin/customers',
-        },
-        {
-            title: 'Users',
-            icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-            ),
-            path: '/admin/users',
+            path: '/admin/customers'
         },
         {
             title: 'Reports',
@@ -97,7 +103,17 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
                 { title: 'Sales Report', path: '/admin/reports/sales' },
                 { title: 'Inventory Report', path: '/admin/reports/inventory' },
                 { title: 'Customer Report', path: '/admin/reports/customers' },
+                { title: 'Analytics', path: '/admin/reports/analytics' }
             ]
+        },
+        {
+            title: 'Users',
+            icon: (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+            ),
+            path: '/admin/users'
         },
         {
             title: 'Settings',
@@ -110,135 +126,259 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
             children: [
                 { title: 'General', path: '/admin/settings' },
                 { title: 'Profile', path: '/admin/settings/profile' },
+                { title: 'Security', path: '/admin/settings/security' },
+                { title: 'Notifications', path: '/admin/settings/notifications' }
             ]
         }
     ];
 
-    const toggleMenu = (title) => {
-        setExpandedMenus(prev => ({
-            ...prev,
-            [title]: !prev[title]
-        }));
+    // Check which menu should be open based on current path
+    useEffect(() => {
+        const activeMenuItem = menuItems.find(item => 
+            item.children?.some(child => 
+                location.pathname.includes(child.path.split('?')[0])
+            )
+        );
+        setOpenMenu(activeMenuItem?.title || null);
+    }, [location.pathname]);
+
+    const handleMenuClick = (title) => {
+        setOpenMenu(openMenu === title ? null : title);
+    };
+
+    const isMenuItemActive = (item) => {
+        if (item.path && location.pathname === item.path) return true;
+        if (item.children) {
+            return item.children.some(child => 
+                location.pathname.includes(child.path.split('?')[0])
+            );
+        }
+        return false;
+    };
+
+    const isChildActive = (childPath) => {
+        return location.pathname.includes(childPath.split('?')[0]);
+    };
+
+    // Handle navigation when sidebar is collapsed
+    const handleNavClick = (item) => {
+        if (!isExpanded && !isMobile && item.children) {
+            // If sidebar is collapsed and item has children, expand the sidebar
+            toggleSidebar();
+        }
+        if (isMobile) {
+            closeSidebar();
+        }
     };
 
     return (
         <>
             {/* Mobile Overlay */}
             <AnimatePresence>
-                {sidebarOpen && (
+                {isMobileOpen && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 0.5 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black z-20 lg:hidden"
-                        onClick={() => setSidebarOpen(false)}
+                        className="fixed inset-0 bg-black z-40"
+                        onClick={closeSidebar}
                     />
                 )}
             </AnimatePresence>
 
             {/* Sidebar */}
             <motion.aside
-                initial={{ x: -280 }}
-                animate={{ x: sidebarOpen ? 0 : -280 }}
-                transition={{ duration: 0.3 }}
-                className="fixed lg:static top-0 left-0 z-30 h-full w-64 bg-white shadow-lg overflow-y-auto"
+                initial={false}
+                animate={{
+                    x: isMobile ? (isMobileOpen ? 0 : '-100%') : 0,
+                    width: isMobile ? 280 : (isExpanded ? 280 : 80)
+                }}
+                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                className="fixed top-0 left-0 z-50 h-full bg-white border-r border-gray-200 shadow-lg overflow-hidden flex flex-col"
             >
-                {/* Logo */}
-                <div className="p-4 border-b border-gray-200">
-                    <h2 className="text-xl font-light text-gray-800">Tripure<span className="text-blue-600">Admin</span></h2>
-                    <p className="text-xs text-gray-500 mt-1">{user?.name || 'Admin'}</p>
+                {/* Logo Area */}
+                <div className="h-16 flex items-center px-4 border-b border-gray-100 flex-shrink-0">
+                    {isExpanded || isMobile ? (
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                                <span className="text-white font-bold text-lg">T</span>
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-semibold text-gray-800">Tripure</h2>
+                                <p className="text-xs text-gray-500">Admin</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="w-full flex justify-center">
+                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                                <span className="text-white font-bold text-lg">T</span>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Mobile Close Button */}
+                    {isMobile && (
+                        <button
+                            onClick={closeSidebar}
+                            className="ml-auto p-2 hover:bg-gray-100 rounded-lg"
+                        >
+                            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    )}
                 </div>
 
                 {/* Navigation */}
-                <nav className="p-3">
-                    {menuItems.map((item) => (
-                        <div key={item.title} className="mb-1">
-                            {item.children ? (
-                                <div>
-                                    <button
-                                        onClick={() => toggleMenu(item.title)}
-                                        className="w-full flex items-center justify-between px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-gray-500">{item.icon}</span>
-                                            <span>{item.title}</span>
-                                        </div>
-                                        <svg
-                                            className={`w-4 h-4 transition-transform duration-200 ${
-                                                expandedMenus[item.title] ? 'rotate-180' : ''
-                                            }`}
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
+                <nav className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-50 py-4">
+                    <div className="px-2 space-y-1">
+                        {menuItems.map((item) => (
+                            <div key={item.title}>
+                                {item.children ? (
+                                    // Dropdown Menu
+                                    <div>
+                                        <button
+                                            onClick={() => {
+                                                handleMenuClick(item.title);
+                                                handleNavClick(item);
+                                            }}
+                                            className={`w-full flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                                                isMenuItemActive(item)
+                                                    ? 'bg-blue-50 text-blue-600'
+                                                    : 'text-gray-700 hover:bg-gray-50'
+                                            } ${!isExpanded && !isMobile ? 'justify-center' : 'justify-between'}`}
                                         >
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                                        </svg>
-                                    </button>
-                                    
-                                    <AnimatePresence>
-                                        {expandedMenus[item.title] && (
-                                            <motion.div
-                                                initial={{ height: 0, opacity: 0 }}
-                                                animate={{ height: 'auto', opacity: 1 }}
-                                                exit={{ height: 0, opacity: 0 }}
-                                                className="overflow-hidden pl-11"
-                                            >
-                                                {item.children.map((child) => (
-                                                    <NavLink
-                                                        key={child.path}
-                                                        to={child.path}
-                                                        className={({ isActive }) =>
-                                                            `block py-2 px-3 text-sm rounded-lg transition-colors ${
-                                                                isActive
-                                                                    ? 'text-blue-600 bg-blue-50'
-                                                                    : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
-                                                            }`
-                                                        }
+                                            <div className={`flex items-center gap-3 min-w-0 ${!isExpanded && !isMobile ? '' : 'flex-1'}`}>
+                                                <span className={isMenuItemActive(item) ? 'text-blue-600' : 'text-gray-500'}>
+                                                    {item.icon}
+                                                </span>
+                                                {(isExpanded || isMobile) && (
+                                                    <span className="text-sm font-medium truncate">{item.title}</span>
+                                                )}
+                                            </div>
+                                            {(isExpanded || isMobile) && (
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                    {item.badge > 0 && (
+                                                        <span className="px-2 py-0.5 text-xs bg-red-100 text-red-600 rounded-full">
+                                                            {item.badge}
+                                                        </span>
+                                                    )}
+                                                    <svg
+                                                        className={`w-4 h-4 transition-transform duration-200 ${
+                                                            openMenu === item.title ? 'rotate-180' : ''
+                                                        }`}
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        viewBox="0 0 24 24"
                                                     >
-                                                        {child.title}
-                                                    </NavLink>
-                                                ))}
-                                            </motion.div>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                                                    </svg>
+                                                </div>
+                                            )}
+                                        </button>
+
+                                        <AnimatePresence>
+                                            {openMenu === item.title && (isExpanded || isMobile) && (
+                                                <motion.div
+                                                    initial={{ height: 0, opacity: 0 }}
+                                                    animate={{ height: 'auto', opacity: 1 }}
+                                                    exit={{ height: 0, opacity: 0 }}
+                                                    className="overflow-hidden"
+                                                >
+                                                    <div className="pl-11 pr-3 py-1 space-y-1">
+                                                        {item.children.map((child) => (
+                                                            <NavLink
+                                                                key={child.path}
+                                                                to={child.path}
+                                                                onClick={() => {
+                                                                    if (isMobile) closeSidebar();
+                                                                }}
+                                                                className={({ isActive }) =>
+                                                                    `block py-2 px-3 text-sm rounded-lg transition-all duration-200 ${
+                                                                        isChildActive(child.path)
+                                                                            ? 'bg-blue-600 text-white font-medium'
+                                                                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                                                    }`
+                                                                }
+                                                            >
+                                                                {child.title}
+                                                            </NavLink>
+                                                        ))}
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
+                                ) : (
+                                    // Single Menu Item
+                                    <NavLink
+                                        to={item.path}
+                                        onClick={() => {
+                                            if (isMobile) closeSidebar();
+                                            handleNavClick(item);
+                                        }}
+                                        className={({ isActive }) =>
+                                            `flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                                                isSingleMenuItemActive(item.path)
+                                                    ? 'bg-blue-600 text-white'
+                                                    : 'text-gray-700 hover:bg-gray-50'
+                                            } ${!isExpanded && !isMobile ? 'justify-center' : ''}`
+                                        }
+                                    >
+                                        <div className={`flex items-center gap-3 min-w-0 ${!isExpanded && !isMobile ? '' : 'flex-1'}`}>
+                                            <span className={isSingleMenuItemActive(item.path) ? 'text-white' : 'text-gray-500'}>
+                                                {item.icon}
+                                            </span>
+                                            {(isExpanded || isMobile) && (
+                                                <span className="text-sm font-medium truncate">{item.title}</span>
+                                            )}
+                                        </div>
+                                        {(isExpanded || isMobile) && item.badge > 0 && (
+                                            <span className="px-2 py-0.5 text-xs bg-red-100 text-red-600 rounded-full flex-shrink-0">
+                                                {item.badge}
+                                            </span>
                                         )}
-                                    </AnimatePresence>
-                                </div>
-                            ) : (
-                                <NavLink
-                                    to={item.path}
-                                    className={({ isActive }) =>
-                                        `flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors ${
-                                            isActive
-                                                ? 'text-blue-600 bg-blue-50'
-                                                : 'text-gray-700 hover:bg-gray-50'
-                                        }`
-                                    }
-                                >
-                                    <span className="text-gray-500">{item.icon}</span>
-                                    <span>{item.title}</span>
-                                </NavLink>
-                            )}
-                        </div>
-                    ))}
+                                    </NavLink>
+                                )}
+                            </div>
+                        ))}
+                    </div>
                 </nav>
 
-                {/* User Menu at Bottom */}
-                <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-gray-200 bg-white">
-                    <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
-                        <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-full flex items-center justify-center">
-                            <span className="text-white text-sm font-medium">
-                                {user?.name?.charAt(0) || user?.username?.charAt(0) || 'A'}
-                            </span>
-                        </div>
-                        <div className="flex-1 text-left">
-                            <p className="font-medium text-gray-700">{user?.name || user?.username || 'Admin'}</p>
-                            <p className="text-xs text-gray-500 capitalize">{user?.role || 'admin'}</p>
-                        </div>
-                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                        </svg>
-                    </button>
-                </div>
+                {/* Collapse/Expand Button - Desktop Only */}
+                {!isMobile && (
+                    <div className="border-t border-gray-100 p-3 flex-shrink-0">
+                        <button
+                            onClick={toggleSidebar}
+                            className={`w-full flex items-center px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-gray-600 ${
+                                !isExpanded ? 'justify-center' : 'justify-start'
+                            }`}
+                        >
+                            <svg
+                                className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? '' : 'rotate-180'}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                            </svg>
+                            {isExpanded && <span className="text-sm ml-2">Collapse</span>}
+                        </button>
+                    </div>
+                )}
             </motion.aside>
+
+            {/* Mobile Menu Button */}
+            {isMobile && !isMobileOpen && (
+                <button
+                    onClick={toggleSidebar}
+                    className="fixed bottom-4 right-4 z-50 w-12 h-12 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-700 transition-colors"
+                >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
+            )}
         </>
     );
 };
