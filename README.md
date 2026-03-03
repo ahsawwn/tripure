@@ -1,4 +1,3 @@
-markdown
 # Tripure Admin Panel 🚀
 
 A comprehensive, production-ready admin dashboard for Tripure Industries - a premium water manufacturing and distribution company. Built with React, Tailwind CSS, and Node.js.
