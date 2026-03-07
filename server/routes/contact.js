@@ -24,11 +24,56 @@ module.exports = (db) => {
                 });
             }
 
-            // Insert into database
-            const [result] = await db.execute(
-                'INSERT INTO contacts (name, email, phone, subject, message, status) VALUES (?, ?, ?, ?, ?, ?)',
-                [name, email, phone || null, subject || null, message, 'new']
+            // Start by checking if contact already exists
+            const [existingContacts] = await db.execute(
+                'SELECT id FROM contacts WHERE email = ?',
+                [email]
             );
+
+            let contactId = null;
+
+            if (existingContacts.length > 0) {
+                contactId = existingContacts[0].id;
+                // Update existing contact's total_messages and last_message_at
+                await db.execute(
+                    'UPDATE contacts SET phone = COALESCE(?, phone), company = COALESCE(?, company), total_messages = total_messages + 1, last_message_at = NOW() WHERE id = ?',
+                    [phone || null, req.body.company || null, contactId]
+                );
+            } else {
+                // Insert into contacts table
+                const [contactResult] = await db.execute(
+                    'INSERT INTO contacts (name, email, phone, company, source) VALUES (?, ?, ?, ?, ?)',
+                    [name, email, phone || null, req.body.company || null, 'contact_form']
+                );
+                contactId = contactResult.insertId;
+            }
+
+            // Insert into messages table
+            const type = req.body.type || 'contact';
+            const page_url = req.body.page_url || '/';
+
+            const [result] = await db.execute(
+                'INSERT INTO messages (type, name, email, phone, company, subject, message, status, page_url, customer_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [type, name, email, phone || null, req.body.company || null, subject || null, message, 'new', page_url, contactId]
+            );
+
+            // Create an admin notification
+            try {
+                await db.execute(
+                    `INSERT INTO notifications (type, title, message, data, is_read) 
+                     VALUES ('message', 'New Contact Message', ?, ?, 0)`,
+                    [
+                        `New message received from ${name} (${email})`,
+                        JSON.stringify({
+                            message_id: result.insertId,
+                            sender: name,
+                            subject: subject || 'Contact Form Submission'
+                        })
+                    ]
+                );
+            } catch (notifError) {
+                console.error('Failed to create notification:', notifError);
+            }
 
             res.status(201).json({
                 success: true,
@@ -109,7 +154,7 @@ module.exports = (db) => {
     router.patch('/messages/:id/status', async (req, res) => {
         try {
             const { status } = req.body;
-            
+
             if (!['new', 'read', 'replied'].includes(status)) {
                 return res.status(400).json({
                     success: false,

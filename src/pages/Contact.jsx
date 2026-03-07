@@ -10,8 +10,10 @@ const Contact = () => {
         name: '',
         email: '',
         phone: '',
+        company: '',
         subject: '',
-        message: ''
+        message: '',
+        type: 'contact' // Default type
     });
 
     const [loading, setLoading] = useState(false);
@@ -25,6 +27,7 @@ const Contact = () => {
             ...prev,
             [name]: value
         }));
+        // Clear error for this field
         if (errors[name]) {
             setErrors(prev => ({ ...prev, [name]: '' }));
         }
@@ -50,38 +53,52 @@ const Contact = () => {
         return newErrors;
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+// In your form submission, make sure company is sent as null if empty
+const handleSubmit = async (e) => {
+    e.preventDefault();
 
-        const newErrors = validateForm();
-        if (Object.keys(newErrors).length > 0) {
-            setErrors(newErrors);
-            toast.error('Please fill in all required fields');
-            return;
+    const newErrors = validateForm();
+    if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
+        toast.error('Please fill in all required fields');
+        return;
+    }
+
+    setLoading(true);
+
+    try {
+        // Prepare data - ensure empty strings become null
+        const submitData = {
+            ...formData,
+            company: formData.company || null,
+            phone: formData.phone || null,
+            subject: formData.subject || null,
+            type: 'contact',
+            page_url: window.location.pathname
+        };
+
+        const response = await axios.post(`${API_URL}/contact/submit`, submitData);
+
+        if (response.data.success) {
+            toast.success('Message sent successfully! We\'ll get back to you soon.');
+            // Reset form
+            setFormData({
+                name: '',
+                email: '',
+                phone: '',
+                company: '',
+                subject: '',
+                message: '',
+                type: 'contact'
+            });
         }
-
-        setLoading(true);
-
-        try {
-            const response = await axios.post(`${API_URL}/contact/submit`, formData);
-
-            if (response.data.success) {
-                toast.success('Message sent successfully! We\'ll get back to you soon.');
-                setFormData({
-                    name: '',
-                    email: '',
-                    phone: '',
-                    subject: '',
-                    message: ''
-                });
-            }
-        } catch (error) {
-            console.error('Contact error:', error);
-            toast.error(error.response?.data?.message || 'Failed to send message');
-        } finally {
-            setLoading(false);
-        }
-    };
+    } catch (error) {
+        console.error('Contact error:', error);
+        toast.error(error.response?.data?.message || 'Failed to send message');
+    } finally {
+        setLoading(false);
+    }
+};
 
     return (
         <div className="min-h-screen bg-white">
@@ -194,56 +211,74 @@ const Contact = () => {
                             <h2 className="text-2xl font-light text-gray-900 mb-6">Send us a Message</h2>
 
                             <form onSubmit={handleSubmit} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Name <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="name"
-                                        value={formData.name}
-                                        onChange={handleChange}
-                                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
-                                            errors.name ? 'border-red-500' : 'border-gray-200'
-                                        }`}
-                                        placeholder="Your full name"
-                                    />
-                                    {errors.name && (
-                                        <p className="mt-1 text-sm text-red-500">{errors.name}</p>
-                                    )}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Name <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="name"
+                                            value={formData.name}
+                                            onChange={handleChange}
+                                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
+                                                errors.name ? 'border-red-500' : 'border-gray-200'
+                                            }`}
+                                            placeholder="Your full name"
+                                        />
+                                        {errors.name && (
+                                            <p className="mt-1 text-sm text-red-500">{errors.name}</p>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Email <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="email"
+                                            name="email"
+                                            value={formData.email}
+                                            onChange={handleChange}
+                                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
+                                                errors.email ? 'border-red-500' : 'border-gray-200'
+                                            }`}
+                                            placeholder="your@email.com"
+                                        />
+                                        {errors.email && (
+                                            <p className="mt-1 text-sm text-red-500">{errors.email}</p>
+                                        )}
+                                    </div>
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Email <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="email"
-                                        name="email"
-                                        value={formData.email}
-                                        onChange={handleChange}
-                                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
-                                            errors.email ? 'border-red-500' : 'border-gray-200'
-                                        }`}
-                                        placeholder="your@email.com"
-                                    />
-                                    {errors.email && (
-                                        <p className="mt-1 text-sm text-red-500">{errors.email}</p>
-                                    )}
-                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Phone (Optional)
+                                        </label>
+                                        <input
+                                            type="tel"
+                                            name="phone"
+                                            value={formData.phone}
+                                            onChange={handleChange}
+                                            className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                                            placeholder="+92 300 1234567"
+                                        />
+                                    </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Phone (Optional)
-                                    </label>
-                                    <input
-                                        type="tel"
-                                        name="phone"
-                                        value={formData.phone}
-                                        onChange={handleChange}
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-                                        placeholder="+92 300 1234567"
-                                    />
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Company (Optional)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="company"
+                                            value={formData.company}
+                                            onChange={handleChange}
+                                            className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                                            placeholder="Your company"
+                                        />
+                                    </div>
                                 </div>
 
                                 <div>
@@ -282,10 +317,21 @@ const Contact = () => {
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                 >
-                                    {loading ? 'Sending...' : 'Send Message'}
+                                    {loading ? (
+                                        <>
+                                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                            <span>Sending...</span>
+                                        </>
+                                    ) : (
+                                        'Send Message'
+                                    )}
                                 </button>
+
+                                <p className="text-xs text-gray-400 text-center mt-4">
+                                    Your information is secure and will only be used to respond to your inquiry.
+                                </p>
                             </form>
                         </motion.div>
                     </div>

@@ -19,13 +19,10 @@ export const AuthProvider = ({ children }) => {
 
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-    // Set up axios defaults
-    if (token) {
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    }
-
+    // Set axios default header when token exists
     useEffect(() => {
         if (token) {
+            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
             fetchUser();
         } else {
             setLoading(false);
@@ -41,7 +38,6 @@ export const AuthProvider = ({ children }) => {
             localStorage.removeItem('token');
             setToken(null);
             delete axios.defaults.headers.common['Authorization'];
-            toast.error('Session expired. Please login again.');
         } finally {
             setLoading(false);
         }
@@ -56,18 +52,38 @@ export const AuthProvider = ({ children }) => {
 
             const { token, user } = response.data;
 
+            // Save to localStorage
             localStorage.setItem('token', token);
+            
+            // Set axios default header
+            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            
+            // Update state
             setToken(token);
             setUser(user);
-            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
             toast.success(`Welcome back, ${user.name || user.username}!`);
             return { success: true, user };
         } catch (error) {
             console.error('Login error:', error);
-            const message = error.response?.data?.message || 'Login failed';
-            toast.error(message);
-            return { success: false, error: message };
+            
+            // Handle different error scenarios
+            if (error.response) {
+                // Server responded with error
+                toast.error(error.response.data?.message || 'Login failed');
+                return { 
+                    success: false, 
+                    error: error.response.data?.message || 'Login failed' 
+                };
+            } else if (error.request) {
+                // No response from server
+                toast.error('Cannot connect to server. Please check if backend is running.');
+                return { success: false, error: 'Network error' };
+            } else {
+                // Something else happened
+                toast.error('An unexpected error occurred');
+                return { success: false, error: error.message };
+            }
         }
     };
 
@@ -88,5 +104,9 @@ export const AuthProvider = ({ children }) => {
         token
     };
 
-    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+    return (
+        <AuthContext.Provider value={value}>
+            {children}
+        </AuthContext.Provider>
+    );
 };

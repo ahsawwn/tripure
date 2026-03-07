@@ -3,223 +3,139 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import {
+    UserIcon,
+    EnvelopeIcon,
+    PhoneIcon,
+    MagnifyingGlassIcon,
+    ArrowPathIcon,
+    CalendarIcon,
+    ChatBubbleLeftIcon
+} from '@heroicons/react/24/outline';
 
-const ContactList = () => {
-    const [messages, setMessages] = useState([]);
+const ContactsList = () => {
+    const [contacts, setContacts] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState('all');
+    const [search, setSearch] = useState('');
 
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
     useEffect(() => {
-        fetchMessages();
+        fetchContacts();
     }, []);
 
-    const fetchMessages = async () => {
+    const fetchContacts = async () => {
         try {
             setLoading(true);
-            const response = await axios.get(`${API_URL}/contacts`);
-            
-            if (response.data.success) {
-                setMessages(response.data.data);
-            }
+            const token = localStorage.getItem('token');
+            const response = await axios.get(`${API_URL}/contacts`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            setContacts(response.data.data || []);
         } catch (error) {
-            console.error('Error fetching messages:', error);
-            toast.error('Failed to load messages');
+            console.error('Error fetching contacts:', error);
+            toast.error('Failed to load contacts');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleDelete = async (id, e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        if (!window.confirm('Are you sure you want to delete this message?')) return;
-
-        try {
-            const response = await axios.delete(`${API_URL}/contacts/${id}`);
-
-            if (response.data.success) {
-                setMessages(messages.filter(msg => msg.id !== id));
-                toast.success('Message deleted successfully');
-            }
-        } catch (error) {
-            console.error('Error deleting message:', error);
-            toast.error(error.response?.data?.message || 'Failed to delete message');
-        }
-    };
-
-    const handleStatusChange = async (id, newStatus, e) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        try {
-            const response = await axios.patch(`${API_URL}/contacts/${id}/status`, {
-                status: newStatus
-            });
-
-            if (response.data.success) {
-                setMessages(messages.map(msg => 
-                    msg.id === id ? { ...msg, status: newStatus } : msg
-                ));
-                toast.success('Status updated');
-            }
-        } catch (error) {
-            console.error('Error updating status:', error);
-            toast.error('Failed to update status');
-        }
-    };
-
-    const filteredMessages = messages.filter(msg => {
-        if (filter === 'all') return true;
-        return msg.status === filter;
-    });
-
-    const getStatusBadge = (status) => {
-        const styles = {
-            new: 'bg-blue-100 text-blue-800',
-            read: 'bg-gray-100 text-gray-800',
-            replied: 'bg-green-100 text-green-800',
-            archived: 'bg-gray-100 text-gray-600'
-        };
-        return styles[status] || 'bg-gray-100 text-gray-800';
-    };
-
-    const formatDate = (dateString) => {
-        const date = new Date(dateString);
-        const now = new Date();
-        const diffTime = Math.abs(now - date);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        if (diffDays === 0) {
-            return 'Today';
-        } else if (diffDays === 1) {
-            return 'Yesterday';
-        } else if (diffDays < 7) {
-            return `${diffDays} days ago`;
-        } else {
-            return date.toLocaleDateString();
-        }
-    };
+    const filteredContacts = contacts.filter(contact =>
+        contact.name?.toLowerCase().includes(search.toLowerCase()) ||
+        contact.email?.toLowerCase().includes(search.toLowerCase()) ||
+        contact.phone?.toLowerCase().includes(search.toLowerCase())
+    );
 
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <div className="text-center">
+                    <div className="w-10 h-10 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
+                    <p className="text-sm text-gray-500 mt-3">Loading contacts...</p>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <h1 className="text-2xl font-light text-gray-900">Contact Messages</h1>
-                <div className="flex gap-2">
-                    <select
-                        value={filter}
-                        onChange={(e) => setFilter(e.target.value)}
-                        className="px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option value="all">All Messages</option>
-                        <option value="new">New</option>
-                        <option value="read">Read</option>
-                        <option value="replied">Replied</option>
-                        <option value="archived">Archived</option>
-                    </select>
-                </div>
+        <div className="h-full w-full bg-gray-50">
+            <div className="bg-white border-b border-gray-200 px-6 py-4">
+                <h1 className="text-2xl font-bold text-gray-900">Contacts</h1>
+                <p className="text-sm text-gray-500 mt-1">Manage your saved contacts</p>
             </div>
 
-            {/* Messages Grid */}
-            {filteredMessages.length === 0 ? (
-                <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-                    <p className="text-gray-500">No messages found</p>
+            <div className="p-6">
+                {/* Search */}
+                <div className="mb-6">
+                    <div className="relative">
+                        <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                            type="text"
+                            placeholder="Search contacts..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
                 </div>
-            ) : (
-                <div className="grid gap-4">
-                    {filteredMessages.map((message, index) => (
+
+                {/* Contacts Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredContacts.map((contact) => (
                         <motion.div
-                            key={message.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.3, delay: index * 0.05 }}
+                            key={contact.id}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow"
                         >
-                            <Link
-                                to={`/admin/contacts/${message.id}`}
-                                className="block bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 overflow-hidden"
-                            >
-                                <div className="p-6">
-                                    <div className="flex items-start justify-between mb-4">
-                                        <div className="flex items-start gap-4">
-                                            {/* Avatar */}
-                                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                                                <span className="text-white font-medium">
-                                                    {message.name?.charAt(0).toUpperCase()}
-                                                </span>
-                                            </div>
-                                            
-                                            <div>
-                                                <h3 className="font-medium text-gray-900">{message.name}</h3>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <span className="text-sm text-gray-500">{message.email}</span>
-                                                    {message.phone && (
-                                                        <>
-                                                            <span className="text-gray-300">•</span>
-                                                            <span className="text-sm text-gray-500">{message.phone}</span>
-                                                        </>
-                                                    )}
-                                                </div>
-                                                {message.subject && (
-                                                    <p className="text-sm text-gray-600 mt-1 font-medium">
-                                                        Subject: {message.subject}
-                                                    </p>
-                                                )}
-                                            </div>
+                            <div className="flex items-start gap-3">
+                                <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-semibold">
+                                    {contact.name?.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="font-semibold text-gray-900">{contact.name}</h3>
+                                    <div className="space-y-1 mt-2 text-sm">
+                                        <div className="flex items-center gap-2 text-gray-600">
+                                            <EnvelopeIcon className="w-4 h-4 text-gray-400" />
+                                            <a href={`mailto:${contact.email}`} className="hover:text-blue-600">
+                                                {contact.email}
+                                            </a>
                                         </div>
-
-                                        <div className="flex items-center gap-3">
-                                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadge(message.status)}`}>
-                                                {message.status?.charAt(0).toUpperCase() + message.status?.slice(1)}
-                                            </span>
-                                            <span className="text-xs text-gray-400 whitespace-nowrap">
-                                                {formatDate(message.created_at)}
-                                            </span>
-                                        </div>
+                                        {contact.phone && (
+                                            <div className="flex items-center gap-2 text-gray-600">
+                                                <PhoneIcon className="w-4 h-4 text-gray-400" />
+                                                <a href={`tel:${contact.phone}`} className="hover:text-blue-600">
+                                                    {contact.phone}
+                                                </a>
+                                            </div>
+                                        )}
                                     </div>
-
-                                    <p className="text-gray-700 mb-4 pl-14 line-clamp-2">
-                                        {message.message}
-                                    </p>
-
-                                    <div className="flex items-center justify-end gap-2 pl-14">
-                                        <select
-                                            value={message.status}
-                                            onChange={(e) => handleStatusChange(message.id, e.target.value, e)}
-                                            onClick={(e) => e.preventDefault()}
-                                            className="px-3 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                                        <span className="text-xs text-gray-400">
+                                            Added {new Date(contact.created_at).toLocaleDateString()}
+                                        </span>
+                                        <Link
+                                            to={`/admin/messages/compose?email=${encodeURIComponent(contact.email)}&name=${encodeURIComponent(contact.name)}`}
+                                            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
                                         >
-                                            <option value="new">New</option>
-                                            <option value="read">Mark as Read</option>
-                                            <option value="replied">Mark as Replied</option>
-                                            <option value="archived">Archive</option>
-                                        </select>
-
-                                        <button
-                                            onClick={(e) => handleDelete(message.id, e)}
-                                            className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
-                                        >
-                                            Delete
-                                        </button>
+                                            <ChatBubbleLeftIcon className="w-4 h-4" />
+                                        </Link>
                                     </div>
                                 </div>
-                            </Link>
+                            </div>
                         </motion.div>
                     ))}
                 </div>
-            )}
+
+                {filteredContacts.length === 0 && (
+                    <div className="text-center py-12">
+                        <UserIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                        <p className="text-gray-500">No contacts found</p>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
 
-export default ContactList;
+export default ContactsList;

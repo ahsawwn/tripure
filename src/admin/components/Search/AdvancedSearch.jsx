@@ -32,15 +32,16 @@ const AdvancedSearch = () => {
     const inputRef = useRef(null);
     const resultRefs = useRef([]);
     const navigate = useNavigate();
-    
+
     const debouncedQuery = useDebounce(searchQuery, 300);
 
     // Flatten results for navigation
     const flatResults = [
-        ...searchResults.contacts.map(r => ({ ...r, type: 'contacts' })),
-        ...searchResults.orders.map(r => ({ ...r, type: 'orders' })),
-        ...searchResults.products.map(r => ({ ...r, type: 'products' })),
-        ...searchResults.bulkOrders.map(r => ({ ...r, type: 'bulkOrders' }))
+        ...(searchResults.contacts || []).map(r => ({ ...r, type: 'contacts' })),
+        ...(searchResults.orders || []).map(r => ({ ...r, type: 'orders' })),
+        ...(searchResults.products || []).map(r => ({ ...r, type: 'products' })),
+        ...(searchResults.bulkOrders || []).map(r => ({ ...r, type: 'bulkOrders' })),
+        ...(searchResults.customers || []).map(r => ({ ...r, type: 'customers' }))
     ];
 
     // Keyboard shortcuts
@@ -59,7 +60,7 @@ const AdvancedSearch = () => {
         },
         onNavigateResults: (direction) => {
             if (flatResults.length === 0) return;
-            
+
             setSelectedResultIndex(prev => {
                 if (direction === 'next') {
                     return prev < flatResults.length - 1 ? prev + 1 : 0;
@@ -133,11 +134,11 @@ const AdvancedSearch = () => {
         setIsOpen(false);
         setSearchQuery('');
         setSelectedResultIndex(-1);
-        
+
         // Navigate based on type
-        switch(type) {
+        switch (type) {
             case 'contacts':
-                navigate(`/admin/contacts/${item.id}`);
+                navigate(`/admin/messages/${item.id}`);
                 break;
             case 'orders':
                 navigate(`/admin/orders/${item.id}`);
@@ -147,6 +148,9 @@ const AdvancedSearch = () => {
                 break;
             case 'bulkOrders':
                 navigate(`/admin/bulk-orders/${item.id}`);
+                break;
+            case 'customers':
+                navigate(`/admin/customers/${item.id}`);
                 break;
             default:
                 break;
@@ -163,15 +167,15 @@ const AdvancedSearch = () => {
 
     const highlightMatch = (text, query) => {
         if (!query || !text) return text;
-        
+
         const words = query.toLowerCase().split(' ').filter(w => w.length > 1);
         let highlightedText = text.toString();
-        
+
         words.forEach(word => {
             const regex = new RegExp(`(${word})`, 'gi');
             highlightedText = highlightedText.replace(regex, '<mark class="bg-yellow-200 px-0.5 rounded">$1</mark>');
         });
-        
+
         return <span dangerouslySetInnerHTML={{ __html: highlightedText }} />;
     };
 
@@ -192,7 +196,7 @@ const AdvancedSearch = () => {
                     <svg className="w-4 h-4 text-gray-400 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
-                    
+
                     {/* Shortcut Hint */}
                     <div className="absolute right-2 top-1.5 flex items-center gap-1">
                         {!searchQuery && (
@@ -202,14 +206,13 @@ const AdvancedSearch = () => {
                                 </kbd>
                             </div>
                         )}
-                        
+
                         {searchQuery && (
                             <>
                                 <button
                                     onClick={() => setShowFilters(!showFilters)}
-                                    className={`p-1.5 rounded transition-colors ${
-                                        showFilters ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100 text-gray-500'
-                                    }`}
+                                    className={`p-1.5 rounded transition-colors ${showFilters ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100 text-gray-500'
+                                        }`}
                                     title="Filters (F)"
                                 >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -236,7 +239,7 @@ const AdvancedSearch = () => {
                                 </button>
                             </>
                         )}
-                        
+
                         {/* Help button */}
                         <button
                             onClick={() => setShowShortcutsModal(true)}
@@ -354,11 +357,11 @@ const AdvancedSearch = () => {
 
                                     {/* Results by Category */}
                                     <div className="max-h-96 overflow-y-auto">
-                                        {/* Contacts */}
-                                        {searchResults.contacts.length > 0 && (
+                                        {/* Messages (Search results contacts contains messages) */}
+                                        {searchResults.contacts && searchResults.contacts.length > 0 && (
                                             <div className="p-2">
                                                 <h4 className="text-xs font-medium text-gray-500 px-2 py-1">
-                                                    Contacts ({searchResults.contacts.length})
+                                                    Messages ({searchResults.contacts.length})
                                                 </h4>
                                                 {searchResults.contacts.map((contact, idx) => {
                                                     const globalIndex = flatResults.findIndex(r => r.type === 'contacts' && r.id === contact.id);
@@ -368,9 +371,8 @@ const AdvancedSearch = () => {
                                                             ref={el => resultRefs.current[globalIndex] = el}
                                                             onClick={() => handleResultClick('contacts', contact)}
                                                             onMouseEnter={() => setSelectedResultIndex(globalIndex)}
-                                                            className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                                                                selectedResultIndex === globalIndex ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'
-                                                            }`}
+                                                            className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${selectedResultIndex === globalIndex ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'
+                                                                }`}
                                                         >
                                                             <div className="flex items-start justify-between">
                                                                 <div>
@@ -389,11 +391,10 @@ const AdvancedSearch = () => {
                                                                         </p>
                                                                     )}
                                                                 </div>
-                                                                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                                                    contact.status === 'new' ? 'bg-blue-100 text-blue-700' :
+                                                                <span className={`text-xs px-2 py-0.5 rounded-full ${contact.status === 'new' ? 'bg-blue-100 text-blue-700' :
                                                                     contact.status === 'read' ? 'bg-gray-100 text-gray-700' :
-                                                                    'bg-green-100 text-green-700'
-                                                                }`}>
+                                                                        'bg-green-100 text-green-700'
+                                                                    }`}>
                                                                     {contact.status}
                                                                 </span>
                                                             </div>
@@ -417,9 +418,8 @@ const AdvancedSearch = () => {
                                                             ref={el => resultRefs.current[globalIndex] = el}
                                                             onClick={() => handleResultClick('orders', order)}
                                                             onMouseEnter={() => setSelectedResultIndex(globalIndex)}
-                                                            className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                                                                selectedResultIndex === globalIndex ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'
-                                                            }`}
+                                                            className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${selectedResultIndex === globalIndex ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'
+                                                                }`}
                                                         >
                                                             <div className="flex items-start justify-between">
                                                                 <div>
@@ -436,11 +436,10 @@ const AdvancedSearch = () => {
                                                                         ₨ {order.amount.toLocaleString()} • {order.items} items
                                                                     </p>
                                                                 </div>
-                                                                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                                                    order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                                                                <span className={`text-xs px-2 py-0.5 rounded-full ${order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                                                                     order.status === 'processing' ? 'bg-blue-100 text-blue-700' :
-                                                                    'bg-green-100 text-green-700'
-                                                                }`}>
+                                                                        'bg-green-100 text-green-700'
+                                                                    }`}>
                                                                     {order.status}
                                                                 </span>
                                                             </div>
@@ -464,9 +463,8 @@ const AdvancedSearch = () => {
                                                             ref={el => resultRefs.current[globalIndex] = el}
                                                             onClick={() => handleResultClick('products', product)}
                                                             onMouseEnter={() => setSelectedResultIndex(globalIndex)}
-                                                            className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                                                                selectedResultIndex === globalIndex ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'
-                                                            }`}
+                                                            className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${selectedResultIndex === globalIndex ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'
+                                                                }`}
                                                         >
                                                             <div className="flex items-start justify-between">
                                                                 <div>
@@ -504,9 +502,8 @@ const AdvancedSearch = () => {
                                                             ref={el => resultRefs.current[globalIndex] = el}
                                                             onClick={() => handleResultClick('bulkOrders', order)}
                                                             onMouseEnter={() => setSelectedResultIndex(globalIndex)}
-                                                            className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                                                                selectedResultIndex === globalIndex ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'
-                                                            }`}
+                                                            className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${selectedResultIndex === globalIndex ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'
+                                                                }`}
                                                         >
                                                             <div className="flex items-start justify-between">
                                                                 <div>
@@ -523,12 +520,55 @@ const AdvancedSearch = () => {
                                                                         {order.quantity} bottles
                                                                     </p>
                                                                 </div>
-                                                                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                                                    order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                                                                <span className={`text-xs px-2 py-0.5 rounded-full ${order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                                                                     order.status === 'quoted' ? 'bg-blue-100 text-blue-700' :
-                                                                    'bg-green-100 text-green-700'
-                                                                }`}>
+                                                                        'bg-green-100 text-green-700'
+                                                                    }`}>
                                                                     {order.status}
+                                                                </span>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+
+                                        {/* Customers */}
+                                        {searchResults.customers && searchResults.customers.length > 0 && (
+                                            <div className="p-2 border-t border-gray-100">
+                                                <h4 className="text-xs font-medium text-gray-500 px-2 py-1">
+                                                    Customers ({searchResults.customers.length})
+                                                </h4>
+                                                {searchResults.customers.map((customer, idx) => {
+                                                    const globalIndex = flatResults.findIndex(r => r.type === 'customers' && r.id === customer.id);
+                                                    return (
+                                                        <button
+                                                            key={customer.id}
+                                                            ref={el => resultRefs.current[globalIndex] = el}
+                                                            onClick={() => handleResultClick('customers', customer)}
+                                                            onMouseEnter={() => setSelectedResultIndex(globalIndex)}
+                                                            className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${selectedResultIndex === globalIndex ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'
+                                                                }`}
+                                                        >
+                                                            <div className="flex items-start justify-between">
+                                                                <div>
+                                                                    <p className="text-sm font-medium text-gray-900">
+                                                                        {highlightMatch(customer.name, searchQuery)}
+                                                                        {selectedResultIndex === globalIndex && (
+                                                                            <span className="ml-2 text-xs text-blue-600">↵ select</span>
+                                                                        )}
+                                                                    </p>
+                                                                    <p className="text-xs text-gray-500">
+                                                                        {highlightMatch(customer.email, searchQuery)}
+                                                                    </p>
+                                                                    {customer.phone && (
+                                                                        <p className="text-xs text-gray-400 mt-1">
+                                                                            {customer.phone}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 capitalize">
+                                                                    {customer.role || 'customer'}
                                                                 </span>
                                                             </div>
                                                         </button>
@@ -641,7 +681,7 @@ const AdvancedSearch = () => {
             </div>
 
             {/* Keyboard Shortcuts Modal */}
-            <KeyboardShortcutsModal 
+            <KeyboardShortcutsModal
                 isOpen={showShortcutsModal}
                 onClose={() => setShowShortcutsModal(false)}
             />

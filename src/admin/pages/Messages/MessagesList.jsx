@@ -1,49 +1,73 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { useNotifications } from '../../contexts/NotificationContext';
-import MessageFilters from './MessageFilters';
-import MessageStats from './MessageStats';
-import MessageTypeTabs from './MessageTypeTabs';
+import { useSidebar } from '../../hooks/useSidebar';
+import {
+    EnvelopeIcon,
+    MagnifyingGlassIcon,
+    AdjustmentsHorizontalIcon,
+    PaperAirplaneIcon,
+    ArchiveBoxIcon,
+    EyeIcon,
+    StarIcon,
+    InboxIcon,
+    BellAlertIcon,
+    CalendarIcon,
+    Bars3Icon,
+    XMarkIcon,
+    ChevronDownIcon
+} from '@heroicons/react/24/outline';
+import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 
 const MessagesList = () => {
+    const location = useLocation();
+    const { isExpanded, isMobile } = useSidebar();
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState({
-        type: 'all',
         status: 'all',
         priority: 'all',
         search: '',
         dateRange: 'all',
-        assigned: 'all'
+        folder: 'inbox'
     });
     const [selectedMessages, setSelectedMessages] = useState([]);
     const [stats, setStats] = useState({
         total: 0,
-        new: 0,
+        unread: 0,
         urgent: 0,
-        replied: 0,
-        unassigned: 0,
-        byType: {}
+        today: 0,
+        starred: 0
     });
-    const [users, setUsers] = useState([]);
+    const [showFilters, setShowFilters] = useState(false);
+    const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
-    const { playSound } = useNotifications();
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
     useEffect(() => {
         fetchMessages();
-        fetchUsers();
     }, [filters]);
+
+    // Close mobile sidebar on route change
+    useEffect(() => {
+        setShowMobileSidebar(false);
+    }, [location.pathname]);
 
     const fetchMessages = async () => {
         try {
             setLoading(true);
-            const response = await axios.get(`${API_URL}/messages`, { params: filters });
-            setMessages(response.data.data);
-            calculateStats(response.data.data);
+            const token = localStorage.getItem('token');
+
+            const params = new URLSearchParams(filters);
+            const response = await axios.get(`${API_URL}/messages?${params}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            const data = response.data.data || [];
+            setMessages(data);
+            calculateStats(data);
         } catch (error) {
             console.error('Error fetching messages:', error);
             toast.error('Failed to load messages');
@@ -52,222 +76,330 @@ const MessagesList = () => {
         }
     };
 
-    const fetchUsers = async () => {
-        try {
-            const response = await axios.get(`${API_URL}/users`);
-            setUsers(response.data.data);
-        } catch (error) {
-            console.error('Error fetching users:', error);
-        }
-    };
-
     const calculateStats = (data) => {
-        const byType = {};
-        data.forEach(msg => {
-            byType[msg.type] = (byType[msg.type] || 0) + 1;
-        });
-
+        const today = new Date().toDateString();
         setStats({
             total: data.length,
-            new: data.filter(m => m.status === 'new').length,
-            urgent: data.filter(m => m.priority === 'urgent' || m.priority === 'high').length,
-            replied: data.filter(m => m.status === 'replied').length,
-            unassigned: data.filter(m => !m.assigned_to).length,
-            byType
+            unread: data.filter(m => m.status === 'new').length,
+            urgent: data.filter(m => m.priority === 'urgent').length,
+            today: data.filter(m => new Date(m.created_at).toDateString() === today).length,
+            starred: data.filter(m => m.starred).length
         });
     };
 
-    const handleStatusChange = async (messageId, newStatus) => {
+    const handleStatusChange = async (id, status) => {
         try {
-            await axios.patch(`${API_URL}/messages/${messageId}/status`, { status: newStatus });
-            setMessages(prev => prev.map(m => 
-                m.id === messageId ? { ...m, status: newStatus } : m
-            ));
-            calculateStats(messages.map(m => 
-                m.id === messageId ? { ...m, status: newStatus } : m
-            ));
-            toast.success(`Message marked as ${newStatus}`);
-            
-            if (newStatus === 'new') {
-                playSound('newMessage');
-            }
+            const token = localStorage.getItem('token');
+            await axios.patch(`${API_URL}/messages/${id}/status`, { status }, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            toast.success(`Message marked as ${status}`);
+            fetchMessages();
         } catch (error) {
-            console.error('Error updating status:', error);
             toast.error('Failed to update status');
         }
     };
 
-    const handleAssign = async (messageId, userId) => {
+    const handleStarMessage = async (id, starred) => {
         try {
-            await axios.patch(`${API_URL}/messages/${messageId}/assign`, { assigned_to: userId });
-            setMessages(prev => prev.map(m => 
-                m.id === messageId ? { ...m, assigned_to: userId } : m
-            ));
-            toast.success('Message assigned successfully');
+            const token = localStorage.getItem('token');
+            await axios.patch(`${API_URL}/messages/${id}/star`, { starred }, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            fetchMessages();
         } catch (error) {
-            console.error('Error assigning message:', error);
-            toast.error('Failed to assign message');
+            toast.error('Failed to update star');
         }
     };
 
     const handleBulkAction = async (action) => {
-        if (selectedMessages.length === 0) {
-            toast.error('No messages selected');
-            return;
-        }
+        if (selectedMessages.length === 0) return;
 
         try {
+            const token = localStorage.getItem('token');
             await axios.post(`${API_URL}/messages/bulk`, {
                 action,
                 messageIds: selectedMessages
+            }, {
+                headers: { 'Authorization': `Bearer ${token}` }
             });
-            
             toast.success(`${selectedMessages.length} messages ${action}ed`);
             setSelectedMessages([]);
             fetchMessages();
         } catch (error) {
-            console.error('Error performing bulk action:', error);
-            toast.error('Failed to perform bulk action');
+            toast.error(`Failed to ${action} messages`);
         }
     };
 
     const getPriorityBadge = (priority) => {
-        const colors = {
-            low: 'bg-gray-100 text-gray-700',
-            medium: 'bg-blue-100 text-blue-700',
-            high: 'bg-orange-100 text-orange-700',
-            urgent: 'bg-red-100 text-red-700 animate-pulse'
+        const badges = {
+            urgent: { bg: 'bg-red-100', text: 'text-red-800', label: 'Urgent' },
+            high: { bg: 'bg-orange-100', text: 'text-orange-800', label: 'High' },
+            medium: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Medium' },
+            low: { bg: 'bg-green-100', text: 'text-green-800', label: 'Low' }
         };
-        return colors[priority] || colors.medium;
+        return badges[priority] || badges.medium;
     };
 
-    const getTypeIcon = (type) => {
-        const icons = {
-            contact: '📧',
-            bulk_inquiry: '📦',
-            support: '🆘',
-            feedback: '💭',
-            newsletter: '📰',
-            distributor_inquiry: '🤝',
-            complaint: '⚠️',
-            appreciation: '🌟'
+    const getStatusBadge = (status) => {
+        const badges = {
+            new: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'New' },
+            read: { bg: 'bg-gray-100', text: 'text-gray-800', label: 'Read' },
+            replied: { bg: 'bg-green-100', text: 'text-green-800', label: 'Replied' },
+            archived: { bg: 'bg-purple-100', text: 'text-purple-800', label: 'Archived' }
         };
-        return icons[type] || '📧';
+        return badges[status] || badges.new;
     };
 
-    const getTypeLabel = (type) => {
-        const labels = {
-            contact: 'Contact Form',
-            bulk_inquiry: 'Bulk Order',
-            support: 'Support',
-            feedback: 'Feedback',
-            newsletter: 'Newsletter',
-            distributor_inquiry: 'Distributor',
-            complaint: 'Complaint',
-            appreciation: 'Appreciation'
-        };
-        return labels[type] || type;
-    };
-
-    const formatTime = (date) => {
+    const formatDate = (date) => {
+        const d = new Date(date);
         const now = new Date();
-        const then = new Date(date);
-        const diff = Math.floor((now - then) / 1000 / 60);
-        
-        if (diff < 1) return 'Just now';
-        if (diff < 60) return `${diff}m ago`;
-        if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
-        if (diff < 2880) return 'Yesterday';
-        return `${Math.floor(diff / 1440)}d ago`;
+        const diff = now - d;
+
+        if (diff < 60000) return 'Just now';
+        if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+        if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     };
 
-    const getUserName = (userId) => {
-        const user = users.find(u => u.id === userId);
-        return user ? user.name : 'Unassigned';
-    };
+    const folders = [
+        { id: 'inbox', label: 'Inbox', icon: InboxIcon, count: stats.unread },
+        { id: 'starred', label: 'Starred', icon: StarIcon, count: stats.starred },
+        { id: 'urgent', label: 'Urgent', icon: BellAlertIcon, count: stats.urgent },
+        { id: 'archived', label: 'Archived', icon: ArchiveBoxIcon, count: 0 }
+    ];
+
+    // Calculate container width based on sidebar state
+    const containerWidthClass = !isMobile
+        ? isExpanded
+            ? 'lg:max-w-[calc(100vw-280px)]'
+            : 'lg:max-w-[calc(100vw-100px)]'
+        : 'w-full';
+
+    if (loading && messages.length === 0) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="text-center">
+                    <div className="relative">
+                        <div className="w-16 h-16 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin"></div>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-4">Loading messages...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="space-y-4">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h1 className="text-2xl font-semibold text-gray-900">Messages</h1>
-                    <p className="text-sm text-gray-500 mt-1">Manage all your communications</p>
-                </div>
-                
-                {/* Action Buttons */}
-                <div className="flex items-center gap-2">
-                    <Link
-                        to="/admin/messages/compose"
-                        className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 flex items-center gap-2"
+        <div className={`w-full transition-all duration-300 ${containerWidthClass}`}>
+            {/* Mobile Header */}
+            <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-20">
+                <button
+                    onClick={() => setShowMobileSidebar(true)}
+                    className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                    <Bars3Icon className="w-6 h-6 text-gray-600" />
+                </button>
+                <h1 className="text-lg font-semibold text-gray-900">Messages</h1>
+                <Link
+                    to="/admin/messages/compose"
+                    className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                    <PaperAirplaneIcon className="w-5 h-5" />
+                </Link>
+            </div>
+
+            {/* Desktop Header */}
+            <div className="hidden lg:block bg-white border-b border-gray-200 px-6 py-4">
+                <div className="flex items-center justify-between">
+                    <h1 className="text-2xl font-bold text-gray-900">Messages</h1>
+                    <button
+                        onClick={() => setShowFilters(!showFilters)}
+                        className={`p-2 rounded-lg transition-colors ${showFilters ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-100'
+                            }`}
                     >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                        New Message
-                    </Link>
-                    <Link
-                        to="/admin/messages/templates"
-                        className="px-4 py-2 border border-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-50"
-                    >
-                        Templates
-                    </Link>
+                        <AdjustmentsHorizontalIcon className="w-5 h-5" />
+                    </button>
                 </div>
             </div>
 
-            {/* Stats Cards */}
-            <MessageStats stats={stats} />
+            {/* Mobile Sidebar Overlay */}
+            <AnimatePresence>
+                {showMobileSidebar && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 0.5 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black z-30 lg:hidden"
+                        onClick={() => setShowMobileSidebar(false)}
+                    />
+                )}
+            </AnimatePresence>
 
-            {/* Message Type Tabs */}
-            <MessageTypeTabs 
-                activeType={filters.type} 
-                onTypeChange={(type) => setFilters({ ...filters, type })}
-                stats={stats.byType}
-            />
+            {/* Mobile Sidebar Drawer */}
+            <motion.aside
+                initial={false}
+                animate={{
+                    x: showMobileSidebar ? 0 : '-100%'
+                }}
+                transition={{ duration: 0.3 }}
+                className="fixed top-0 left-0 z-40 w-64 h-full bg-white border-r border-gray-200 lg:hidden overflow-y-auto"
+            >
+                <div className="p-4">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="font-semibold text-gray-900">Menu</h2>
+                        <button
+                            onClick={() => setShowMobileSidebar(false)}
+                            className="p-2 hover:bg-gray-100 rounded-lg"
+                        >
+                            <XMarkIcon className="w-5 h-5 text-gray-600" />
+                        </button>
+                    </div>
 
-            {/* Filters */}
-            <MessageFilters 
-                filters={filters} 
-                setFilters={setFilters} 
-                users={users}
-            />
+                    <Link
+                        to="/admin/messages/compose"
+                        className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all flex items-center justify-center gap-2 mb-4"
+                    >
+                        <PaperAirplaneIcon className="w-4 h-4" />
+                        New Message
+                    </Link>
 
-            {/* Bulk Actions Bar */}
+                    <nav className="space-y-1">
+                        {folders.map(folder => (
+                            <button
+                                key={folder.id}
+                                onClick={() => {
+                                    setFilters({ ...filters, folder: folder.id });
+                                    setShowMobileSidebar(false);
+                                }}
+                                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all ${filters.folder === folder.id
+                                    ? 'bg-blue-50 text-blue-600'
+                                    : 'text-gray-700 hover:bg-gray-100'
+                                    }`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <folder.icon className="w-5 h-5" />
+                                    <span className="text-sm font-medium">{folder.label}</span>
+                                </div>
+                                {folder.count > 0 && (
+                                    <span className={`text-xs px-2 py-0.5 rounded-full ${filters.folder === folder.id
+                                        ? 'bg-blue-100 text-blue-600'
+                                        : 'bg-gray-100 text-gray-600'
+                                        }`}>
+                                        {folder.count}
+                                    </span>
+                                )}
+                            </button>
+                        ))}
+                    </nav>
+                </div>
+            </motion.aside>
+
+            {/* Search Bar */}
+            <div className="px-4 lg:px-6 py-3 lg:py-4">
+                <div className="relative">
+                    <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                        type="text"
+                        placeholder="Search messages..."
+                        value={filters.search}
+                        onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                </div>
+            </div>
+
+            {/* Filters Panel */}
+            <AnimatePresence>
+                {showFilters && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="bg-white border-b border-gray-200 overflow-hidden"
+                    >
+                        <div className="p-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
+                                <select
+                                    value={filters.status}
+                                    onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                >
+                                    <option value="all">All</option>
+                                    <option value="new">New</option>
+                                    <option value="read">Read</option>
+                                    <option value="replied">Replied</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Priority</label>
+                                <select
+                                    value={filters.priority}
+                                    onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                >
+                                    <option value="all">All</option>
+                                    <option value="urgent">Urgent</option>
+                                    <option value="high">High</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="low">Low</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Date</label>
+                                <select
+                                    value={filters.dateRange}
+                                    onChange={(e) => setFilters({ ...filters, dateRange: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                >
+                                    <option value="all">All Time</option>
+                                    <option value="today">Today</option>
+                                    <option value="week">This Week</option>
+                                    <option value="month">This Month</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Folder</label>
+                                <select
+                                    value={filters.folder}
+                                    onChange={(e) => setFilters({ ...filters, folder: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                >
+                                    <option value="inbox">Inbox</option>
+                                    <option value="starred">Starred</option>
+                                    <option value="urgent">Urgent</option>
+                                    <option value="archived">Archived</option>
+                                </select>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Bulk Actions */}
             <AnimatePresence>
                 {selectedMessages.length > 0 && (
                     <motion.div
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="bg-blue-50 p-3 rounded-lg flex items-center justify-between"
+                        className="bg-blue-50 border-b border-blue-200 px-4 lg:px-6 py-3 flex items-center justify-between"
                     >
-                        <span className="text-sm text-blue-700">
-                            {selectedMessages.length} message{selectedMessages.length > 1 ? 's' : ''} selected
+                        <span className="text-sm font-medium text-blue-700">
+                            {selectedMessages.length} selected
                         </span>
                         <div className="flex items-center gap-2">
                             <button
                                 onClick={() => handleBulkAction('read')}
-                                className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                                className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700"
                             >
                                 Mark Read
                             </button>
                             <button
-                                onClick={() => handleBulkAction('archive')}
-                                className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700"
-                            >
-                                Archive
-                            </button>
-                            <button
-                                onClick={() => handleBulkAction('delete')}
-                                className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
-                            >
-                                Delete
-                            </button>
-                            <button
                                 onClick={() => setSelectedMessages([])}
-                                className="px-3 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                                className="px-3 py-1.5 text-xs bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
                             >
-                                Cancel
+                                Clear
                             </button>
                         </div>
                     </motion.div>
@@ -275,135 +407,224 @@ const MessagesList = () => {
             </AnimatePresence>
 
             {/* Messages List */}
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                {/* Table Header */}
-                <div className="grid grid-cols-12 gap-2 px-4 py-3 bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500">
-                    <div className="col-span-1 flex items-center">
-                        <input
-                            type="checkbox"
-                            onChange={(e) => {
-                                if (e.target.checked) {
-                                    setSelectedMessages(messages.map(m => m.id));
-                                } else {
-                                    setSelectedMessages([]);
-                                }
-                            }}
-                            checked={selectedMessages.length === messages.length && messages.length > 0}
-                            className="rounded border-gray-300"
-                        />
+            <div className="px-4 lg:px-6 py-4 lg:py-6">
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+                    {/* Desktop Table View */}
+                    <div className="hidden lg:block overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th scope="col" className="px-6 py-3 text-left w-12">
+                                        {/* Select All Checkbox could go here */}
+                                    </th>
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                        Sender
+                                    </th>
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                        Subject & Message
+                                    </th>
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                        Tags
+                                    </th>
+                                    <th scope="col" className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">
+                                        Date
+                                    </th>
+                                    <th scope="col" className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">
+                                        Actions
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-100">
+                                {messages.map((msg) => {
+                                    const priority = getPriorityBadge(msg.priority);
+                                    const status = getStatusBadge(msg.status);
+                                    const isSelected = selectedMessages.includes(msg.id);
+                                    const isNew = msg.status === 'new';
+
+                                    return (
+                                        <motion.tr
+                                            key={msg.id}
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            className={`hover:bg-gray-50 transition-colors group ${isSelected ? 'bg-blue-50/50' : ''} ${isNew ? 'bg-blue-50/20' : ''}`}
+                                        >
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center gap-3">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) {
+                                                                setSelectedMessages([...selectedMessages, msg.id]);
+                                                            } else {
+                                                                setSelectedMessages(selectedMessages.filter(id => id !== msg.id));
+                                                            }
+                                                        }}
+                                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                    />
+                                                    <button
+                                                        onClick={() => handleStarMessage(msg.id, !msg.starred)}
+                                                        className="text-gray-300 hover:text-yellow-400 transition-colors focus:outline-none"
+                                                    >
+                                                        {msg.starred ? (
+                                                            <StarIconSolid className="w-5 h-5 text-yellow-500" />
+                                                        ) : (
+                                                            <StarIcon className="w-5 h-5 text-gray-400 group-hover:text-gray-500" />
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center">
+                                                    <div className="flex-shrink-0 h-9 w-9">
+                                                        <div className={`h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-semibold ${isNew ? 'bg-gradient-to-br from-blue-500 to-blue-600' : 'bg-gradient-to-br from-gray-400 to-gray-500'
+                                                            }`}>
+                                                            {msg.name?.charAt(0).toUpperCase()}
+                                                        </div>
+                                                    </div>
+                                                    <div className="ml-4">
+                                                        <div className={`text-sm ${isNew ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
+                                                            {msg.name}
+                                                        </div>
+                                                        <div className="text-xs text-gray-500">
+                                                            {msg.email}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <Link to={`/admin/messages/${msg.id}`} className="block group-hover:text-blue-600">
+                                                    <div className={`text-sm mb-0.5 ${isNew ? 'font-bold text-gray-900' : 'font-medium text-gray-800'} line-clamp-1`}>
+                                                        {msg.subject || '(No subject)'}
+                                                    </div>
+                                                    <div className="text-sm text-gray-500 line-clamp-1">
+                                                        {msg.message}
+                                                    </div>
+                                                </Link>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex flex-col gap-1.5 items-start">
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${priority.bg} ${priority.text}`}>
+                                                        {priority.label}
+                                                    </span>
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${status.bg} ${status.text}`}>
+                                                        {status.label}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">
+                                                <span className={isNew ? 'font-bold text-gray-900' : ''}>
+                                                    {formatDate(msg.created_at)}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <Link
+                                                    to={`/admin/messages/${msg.id}`}
+                                                    className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-md transition-colors"
+                                                >
+                                                    View
+                                                </Link>
+                                            </td>
+                                        </motion.tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
                     </div>
-                    <div className="col-span-2">From / Company</div>
-                    <div className="col-span-3">Subject</div>
-                    <div className="col-span-1">Type</div>
-                    <div className="col-span-1">Priority</div>
-                    <div className="col-span-1">Status</div>
-                    <div className="col-span-1">Assigned To</div>
-                    <div className="col-span-2">Received</div>
+
+                    {/* Mobile Card View */}
+                    <div className="lg:hidden divide-y divide-gray-100">
+                        {messages.map((msg) => {
+                            const priority = getPriorityBadge(msg.priority);
+                            const status = getStatusBadge(msg.status);
+                            const isNew = msg.status === 'new';
+
+                            return (
+                                <motion.div
+                                    key={msg.id}
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    className={`relative p-4 ${isNew ? 'bg-blue-50/30' : 'bg-white'} hover:bg-gray-50 transition-colors cursor-pointer`}
+                                    onClick={(e) => {
+                                        // Prevents navigation if clicking checkbox/star
+                                        if (e.target.closest('button') || e.target.closest('input')) return;
+                                        window.location.href = `/admin/messages/${msg.id}`;
+                                    }}
+                                >
+                                    {isNew && (
+                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500"></div>
+                                    )}
+                                    <div className="flex items-start gap-3">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedMessages.includes(msg.id)}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setSelectedMessages([...selectedMessages, msg.id]);
+                                                } else {
+                                                    setSelectedMessages(selectedMessages.filter(id => id !== msg.id));
+                                                }
+                                            }}
+                                            className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        />
+
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <div className="flex items-center gap-2 truncate pr-2">
+                                                    <span className={`text-sm truncate ${isNew ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
+                                                        {msg.name}
+                                                    </span>
+                                                </div>
+                                                <span className={`text-xs flex-shrink-0 ${isNew ? 'font-bold text-blue-600' : 'text-gray-500'}`}>
+                                                    {formatDate(msg.created_at)}
+                                                </span>
+                                            </div>
+                                            <div className={`text-sm mb-1 truncate ${isNew ? 'font-bold text-gray-900' : 'text-gray-800'}`}>
+                                                {msg.subject || '(No subject)'}
+                                            </div>
+                                            <div className="text-sm text-gray-500 line-clamp-1 mb-2">
+                                                {msg.message}
+                                            </div>
+
+                                            <div className="flex items-center justify-between mt-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${status.bg} ${status.text}`}>
+                                                        {status.label}
+                                                    </span>
+                                                    {msg.priority !== 'medium' && (
+                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${priority.bg} ${priority.text}`}>
+                                                            {priority.label}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleStarMessage(msg.id, !msg.starred);
+                                                    }}
+                                                    className="p-1 text-gray-400 hover:text-yellow-400 transition-colors"
+                                                >
+                                                    {msg.starred ? (
+                                                        <StarIconSolid className="w-5 h-5 text-yellow-400" />
+                                                    ) : (
+                                                        <StarIcon className="w-5 h-5" />
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            );
+                        })}
+                    </div>
                 </div>
 
-                {/* Messages */}
-                {loading ? (
-                    <div className="p-8 text-center">
-                        <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-gray-300 border-t-blue-600"></div>
-                        <p className="text-sm text-gray-500 mt-2">Loading messages...</p>
+                {messages.length === 0 && (
+                    <div className="text-center py-12 lg:py-16">
+                        <InboxIcon className="w-12 h-12 lg:w-16 lg:h-16 text-gray-400 mx-auto mb-4" />
+                        <h3 className="text-base lg:text-lg font-semibold text-gray-900 mb-2">No messages found</h3>
+                        <p className="text-sm text-gray-500">Try adjusting your filters</p>
                     </div>
-                ) : messages.length === 0 ? (
-                    <div className="p-12 text-center">
-                        <p className="text-gray-500">No messages found</p>
-                    </div>
-                ) : (
-                    <AnimatePresence>
-                        {messages.map((message, index) => (
-                            <motion.div
-                                key={message.id}
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ delay: index * 0.02 }}
-                                className={`grid grid-cols-12 gap-2 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0 ${
-                                    message.status === 'new' ? 'bg-blue-50/30' : ''
-                                }`}
-                            >
-                                <div className="col-span-1 flex items-center">
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedMessages.includes(message.id)}
-                                        onChange={(e) => {
-                                            if (e.target.checked) {
-                                                setSelectedMessages([...selectedMessages, message.id]);
-                                            } else {
-                                                setSelectedMessages(selectedMessages.filter(id => id !== message.id));
-                                            }
-                                        }}
-                                        className="rounded border-gray-300"
-                                    />
-                                </div>
-                                
-                                <div className="col-span-2">
-                                    <Link to={`/admin/messages/${message.id}`} className="block">
-                                        <p className="text-sm font-medium text-gray-900">{message.name}</p>
-                                        <p className="text-xs text-gray-500">{message.company || message.email}</p>
-                                    </Link>
-                                </div>
-                                
-                                <div className="col-span-3">
-                                    <Link to={`/admin/messages/${message.id}`} className="block">
-                                        <p className="text-sm text-gray-900 truncate font-medium">
-                                            {message.subject || '(No subject)'}
-                                        </p>
-                                        <p className="text-xs text-gray-500 truncate mt-1">
-                                            {message.message?.substring(0, 60)}...
-                                        </p>
-                                    </Link>
-                                </div>
-                                
-                                <div className="col-span-1">
-                                    <span className="text-xl" title={getTypeLabel(message.type)}>
-                                        {getTypeIcon(message.type)}
-                                    </span>
-                                </div>
-                                
-                                <div className="col-span-1">
-                                    <span className={`text-xs px-2 py-1 rounded-full ${getPriorityBadge(message.priority)}`}>
-                                        {message.priority}
-                                    </span>
-                                </div>
-                                
-                                <div className="col-span-1">
-                                    <select
-                                        value={message.status}
-                                        onChange={(e) => handleStatusChange(message.id, e.target.value)}
-                                        className="text-xs border border-gray-200 rounded px-1 py-0.5"
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        <option value="new">New</option>
-                                        <option value="read">Read</option>
-                                        <option value="replied">Replied</option>
-                                        <option value="archived">Archive</option>
-                                        <option value="spam">Spam</option>
-                                    </select>
-                                </div>
-                                
-                                <div className="col-span-1">
-                                    <select
-                                        value={message.assigned_to || ''}
-                                        onChange={(e) => handleAssign(message.id, e.target.value)}
-                                        className="text-xs border border-gray-200 rounded px-1 py-0.5 max-w-full"
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        <option value="">Unassigned</option>
-                                        {users.map(user => (
-                                            <option key={user.id} value={user.id}>{user.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                
-                                <div className="col-span-2">
-                                    <p className="text-xs text-gray-500">{formatTime(message.created_at)}</p>
-                                </div>
-                            </motion.div>
-                        ))}
-                    </AnimatePresence>
                 )}
             </div>
         </div>

@@ -1,30 +1,47 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import {
+    LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+    PieChart, Pie, Cell, Legend, AreaChart, Area
+} from 'recharts';
+import {
+    CurrencyDollarIcon,
+    ShoppingBagIcon,
+    EnvelopeIcon,
+    UserGroupIcon,
+    CubeIcon,
+    ExclamationTriangleIcon,
+    ArrowTrendingUpIcon,
+    ClockIcon,
+    CheckCircleIcon,
+    ArrowUpIcon,
+    ArrowDownIcon,
+    FunnelIcon
+} from '@heroicons/react/24/outline';
 
 const Dashboard = () => {
     const { user } = useAuth();
-    const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({
         contacts: { total: 0, newToday: 0 },
-        products: { total: 0, lowStock: 0 },
-        orders: { total: 0, pending: 0, processing: 0, delivered: 0 },
+        products: { total: 0, lowStock: 0, outOfStock: 0 },
+        orders: { total: 0, pending: 0 },
         revenue: { total: 0, today: 0, month: 0 },
-        inventory: { totalBottles: 0, lowStockItems: [], outOfStock: 0 },
-        deliveries: { pending: 0, inTransit: 0, completed: 0 },
-        distributors: { total: 0, active: 0, pending: 0 }
+        inventory: { totalValue: 0 }
+    });
+    const [chartData, setChartData] = useState({
+        messages: [],
+        categories: []
     });
     const [recentActivity, setRecentActivity] = useState([]);
     const [lowStockAlerts, setLowStockAlerts] = useState([]);
-    const [pendingDeliveries, setPendingDeliveries] = useState([]);
-    const [salesData, setSalesData] = useState([]);
-    const [topProducts, setTopProducts] = useState([]);
 
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
     useEffect(() => {
         fetchDashboardData();
@@ -33,49 +50,45 @@ const Dashboard = () => {
     const fetchDashboardData = async () => {
         try {
             setLoading(true);
-            
-            // Simulated data - replace with actual API calls
-            const mockStats = {
-                contacts: { total: 156, newToday: 12 },
-                products: { total: 24, lowStock: 5 },
-                orders: { total: 89, pending: 15, processing: 23, delivered: 51 },
-                revenue: { total: 245000, today: 12500, month: 78000 },
-                inventory: { 
-                    totalBottles: 12500, 
-                    lowStockItems: [
-                        { id: 1, name: 'Le Blue 1L', stock: 45, min: 50 },
-                        { id: 2, name: 'Vatistsa 20L', stock: 30, min: 40 },
-                        { id: 3, name: 'Le Blue 750ml', stock: 15, min: 25 }
-                    ],
-                    outOfStock: 2 
-                },
-                deliveries: { pending: 8, inTransit: 12, completed: 156 },
-                distributors: { total: 45, active: 38, pending: 7 }
-            };
-            
-            setStats(mockStats);
-            
-            // Mock low stock alerts
-            setLowStockAlerts([
-                { id: 1, product: 'Le Blue 1L', current: 45, min: 50, brand: 'leblue' },
-                { id: 2, product: 'Vatistsa 20L', current: 30, min: 40, brand: 'vatistsa' },
-                { id: 3, product: 'Le Blue 750ml', current: 15, min: 25, brand: 'leblue' }
+            const token = localStorage.getItem('token');
+            const config = { headers: { 'Authorization': `Bearer ${token}` } };
+
+            // Fetch dashboard stats & charts
+            const [statsRes, productsRes, contactsRes, chartRes, inventoryRes] = await Promise.all([
+                axios.get(`${API_URL}/dashboard/stats`, config).catch(() => ({ data: { data: stats } })),
+                axios.get(`${API_URL}/products?stock_status=low&limit=5`, config).catch(() => ({ data: { data: [] } })),
+                axios.get(`${API_URL}/messages?limit=5`, config).catch(() => ({ data: { data: [] } })),
+                axios.get(`${API_URL}/dashboard/chart-data`, config).catch(() => ({ data: { data: { messages: [], categories: [] } } })),
+                axios.get(`${API_URL}/inventory/summary`, config).catch(() => ({ data: { data: { total_value: 0 } } }))
             ]);
 
-            // Mock pending deliveries
-            setPendingDeliveries([
-                { id: 1, distributor: 'City Distributors', location: 'Lahore', items: 150, time: '2 hours' },
-                { id: 2, distributor: 'Prime Water Supply', location: 'Islamabad', items: 200, time: '4 hours' },
-                { id: 3, distributor: 'Metro Bottlers', location: 'Rawalpindi', items: 100, time: '1 day' }
-            ]);
+            setStats({
+                ...statsRes.data.data,
+                inventory: {
+                    totalValue: inventoryRes.data.data?.total_value || 0
+                }
+            });
 
-            // Mock top products
-            setTopProducts([
-                { id: 1, name: 'Vatistsa 10L', sales: 1250, revenue: 236250, brand: 'vatistsa' },
-                { id: 2, name: 'Le Blue 1L', sales: 850, revenue: 339150, brand: 'leblue' },
-                { id: 3, name: 'Vatistsa 5L', sales: 720, revenue: 71280, brand: 'vatistsa' },
-                { id: 4, name: 'Le Blue 750ml', sales: 540, revenue: 161460, brand: 'leblue' }
-            ]);
+            // Process chart data
+            const formattedMessages = (chartRes.data.data?.messages || []).map(item => ({
+                date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                count: item.count
+            }));
+
+            setChartData({
+                messages: formattedMessages,
+                categories: chartRes.data.data?.categories || []
+            });
+
+            setLowStockAlerts(productsRes.data.data?.slice(0, 5) || []);
+
+            const activities = contactsRes.data.data?.map(c => ({
+                ...c,
+                type: 'message',
+                time: c.created_at
+            })) || [];
+
+            setRecentActivity(activities.slice(0, 5));
 
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
@@ -85,338 +98,401 @@ const Dashboard = () => {
         }
     };
 
-    const handleQuickAction = (action, data) => {
-        switch(action) {
-            case 'restock':
-                navigate(`/admin/inventory/add?product=${data.id}`);
-                break;
-            case 'dispatch':
-                navigate(`/admin/deliveries/${data.id}/dispatch`);
-                break;
-            case 'contact':
-                window.location.href = `mailto:${data.email}`;
-                break;
-            case 'view':
-                navigate(data.path);
-                break;
-            default:
-                break;
-        }
-    };
-
     const statCards = [
         {
-            title: 'Today\'s Revenue',
-            value: `₨ ${stats.revenue.today.toLocaleString()}`,
-            subValue: `+${Math.round((stats.revenue.today / stats.revenue.month) * 100)}% of monthly`,
-            icon: (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-            ),
-            color: 'emerald',
-            bg: 'bg-emerald-50',
-            text: 'text-emerald-600',
-            link: '/admin/reports',
-            action: 'view',
-            data: { path: '/admin/reports' }
-        },
-        {
-            title: 'Active Orders',
-            value: stats.orders.pending + stats.orders.processing,
-            subValue: `${stats.orders.pending} pending, ${stats.orders.processing} processing`,
-            icon: (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                </svg>
-            ),
-            color: 'blue',
+            title: 'Inventory Value',
+            value: `₨ ${(stats.inventory.totalValue || 0).toLocaleString()}`,
+            subValue: `${stats.products.outOfStock || 0} items out of stock`,
+            icon: CurrencyDollarIcon,
+            color: 'text-blue-600',
             bg: 'bg-blue-50',
-            text: 'text-blue-600',
-            link: '/admin/orders?status=pending',
-            action: 'view',
-            data: { path: '/admin/orders?status=pending' }
+            link: '/admin/products/inventory',
+            trend: '+5.2%',
+            trendUp: true
         },
         {
-            title: 'Inventory Status',
-            value: `${stats.inventory.totalBottles.toLocaleString()} bottles`,
-            subValue: `${stats.products.lowStock} low stock items`,
-            icon: (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                </svg>
-            ),
-            color: 'amber',
+            title: 'Bulk Orders',
+            value: stats.orders.total.toString(),
+            subValue: `${stats.orders.pending} pending query`,
+            icon: ShoppingBagIcon,
+            color: 'text-indigo-600',
+            bg: 'bg-indigo-50',
+            link: '/admin/messages',
+            badge: stats.orders.pending
+        },
+        {
+            title: 'Critical Stock',
+            value: stats.products.lowStock.toString(),
+            subValue: 'Needs immediate attention',
+            icon: ExclamationTriangleIcon,
+            color: 'text-amber-600',
             bg: 'bg-amber-50',
-            text: 'text-amber-600',
-            link: '/admin/inventory',
-            action: 'view',
-            data: { path: '/admin/inventory' }
+            link: '/admin/products?stock_status=low',
+            badge: stats.products.lowStock
         },
         {
-            title: 'Active Distributors',
-            value: stats.distributors.active,
-            subValue: `${stats.distributors.pending} pending approval`,
-            icon: (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-            ),
-            color: 'purple',
+            title: 'Total Products',
+            value: stats.products.total.toString(),
+            subValue: 'Across all categories',
+            icon: CubeIcon,
+            color: 'text-emerald-600',
+            bg: 'bg-emerald-50',
+            link: '/admin/products'
+        },
+        {
+            title: 'New Messages',
+            value: stats.contacts.total.toString(),
+            subValue: `${stats.contacts.newToday} received today`,
+            icon: EnvelopeIcon,
+            color: 'text-purple-600',
             bg: 'bg-purple-50',
-            text: 'text-purple-600',
-            link: '/admin/distributors',
-            action: 'view',
-            data: { path: '/admin/distributors' }
+            link: '/admin/messages',
+            badge: stats.contacts.newToday
         }
     ];
 
-    const quickActions = [
-        {
-            title: 'New Bulk Order',
-            icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-            ),
-            color: 'blue',
-            link: '/admin/bulk-orders/add'
-        },
-        {
-            title: 'Add Inventory',
-            icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-            ),
-            color: 'green',
-            link: '/admin/inventory/add'
-        },
-        {
-            title: 'Schedule Delivery',
-            icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-            ),
-            color: 'orange',
-            link: '/admin/deliveries/schedule'
-        },
-        {
-            title: 'Contact Support',
-            icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-            ),
-            color: 'purple',
-            link: '/admin/support'
-        }
-    ];
+    const formatTime = (date) => {
+        if (!date) return '';
+        const d = new Date(date);
+        const now = new Date();
+        const diff = Math.floor((now - d) / 1000 / 60);
+
+        if (diff < 1) return 'Just now';
+        if (diff < 60) return `${diff}m ago`;
+        if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
+        return d.toLocaleDateString();
+    };
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-64">
-                <div className="relative">
-                    <div className="w-12 h-12 border-4 border-gray-200 rounded-full"></div>
-                    <div className="absolute top-0 left-0 w-12 h-12 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+            <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="relative w-16 h-16">
+                        <div className="absolute inset-0 border-4 border-gray-100 rounded-full"></div>
+                        <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+                    </div>
+                    <p className="text-gray-500 font-medium animate-pulse">Analyzing your business data...</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="space-y-6">
-            {/* Welcome Section */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-8 pb-8">
+            {/* Elegant Header */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
-                    <h1 className="text-2xl font-semibold text-gray-900">Welcome back, {user?.name?.split(' ')[0] || 'Admin'}! 👋</h1>
-                    <p className="text-sm text-gray-500 mt-1">Here's your manufacturing & distribution overview.</p>
+                    <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+                        Dashboard
+                    </h1>
+                    <p className="text-gray-500 mt-1 flex items-center gap-2">
+                        <ClockIcon className="w-4 h-4" />
+                        Last updated {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1.5 rounded-lg">
-                        {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                    </span>
-                </div>
-            </div>
-
-            {/* Main Stats Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {statCards.map((stat, index) => (
-                    <motion.div
-                        key={stat.title}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                        onClick={() => handleQuickAction(stat.action, stat.data)}
-                        className="cursor-pointer"
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={fetchDashboardData}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
                     >
-                        <div className="bg-white rounded-xl p-4 border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all">
-                            <div className="flex items-start justify-between mb-2">
-                                <div className={`w-8 h-8 ${stat.bg} rounded-lg flex items-center justify-center`}>
-                                    <span className={stat.text}>{stat.icon}</span>
-                                </div>
-                                <span className="text-xs text-gray-400">View →</span>
-                            </div>
-                            <div>
-                                <p className="text-2xl font-semibold text-gray-900">{stat.value}</p>
-                                <p className="text-xs text-gray-500 mt-0.5">{stat.title}</p>
-                                <p className="text-xs text-gray-400 mt-1">{stat.subValue}</p>
-                            </div>
-                        </div>
-                    </motion.div>
-                ))}
-            </div>
-
-            {/* Quick Actions Bar */}
-            <div className="bg-white rounded-xl p-4 border border-gray-100">
-                <h2 className="text-sm font-medium text-gray-700 mb-3">Quick Actions</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {quickActions.map((action, index) => (
-                        <motion.div
-                            key={action.title}
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: 0.2 + index * 0.05 }}
-                        >
-                            <Link
-                                to={action.link}
-                                className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 transition-colors"
-                            >
-                                <div className={`w-10 h-10 bg-${action.color}-50 rounded-lg flex items-center justify-center`}>
-                                    <span className={`text-${action.color}-600`}>{action.icon}</span>
-                                </div>
-                                <span className="text-xs text-gray-600 text-center">{action.title}</span>
-                            </Link>
-                        </motion.div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Two Column Layout */}
-            <div className="grid lg:grid-cols-2 gap-4">
-                {/* Low Stock Alerts */}
-                <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className="bg-white rounded-xl p-4 border border-gray-100"
-                >
-                    <div className="flex items-center justify-between mb-3">
-                        <h2 className="text-sm font-medium text-gray-700">⚠️ Low Stock Alerts</h2>
-                        <Link to="/admin/inventory/alerts" className="text-xs text-blue-600 hover:text-blue-700">
-                            View all
-                        </Link>
-                    </div>
-                    <div className="space-y-2">
-                        {lowStockAlerts.map((alert) => (
-                            <div key={alert.id} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg">
-                                <div className="flex items-center gap-2">
-                                    <div className={`w-2 h-2 rounded-full ${
-                                        alert.brand === 'leblue' ? 'bg-blue-500' : 'bg-amber-500'
-                                    }`} />
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-900">{alert.product}</p>
-                                        <p className="text-xs text-gray-500">Stock: {alert.current} / {alert.min}</p>
-                                    </div>
-                                </div>
-                                <button 
-                                    onClick={() => handleQuickAction('restock', alert)}
-                                    className="text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100"
-                                >
-                                    Restock
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                </motion.div>
-
-                {/* Pending Deliveries */}
-                <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.35 }}
-                    className="bg-white rounded-xl p-4 border border-gray-100"
-                >
-                    <div className="flex items-center justify-between mb-3">
-                        <h2 className="text-sm font-medium text-gray-700">🚚 Pending Deliveries</h2>
-                        <Link to="/admin/deliveries" className="text-xs text-blue-600 hover:text-blue-700">
-                            View all
-                        </Link>
-                    </div>
-                    <div className="space-y-2">
-                        {pendingDeliveries.map((delivery) => (
-                            <div key={delivery.id} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg">
-                                <div>
-                                    <p className="text-sm font-medium text-gray-900">{delivery.distributor}</p>
-                                    <p className="text-xs text-gray-500">{delivery.location} • {delivery.items} bottles</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-xs text-gray-700">{delivery.time}</p>
-                                    <button 
-                                        onClick={() => handleQuickAction('dispatch', delivery)}
-                                        className="text-xs px-2 py-1 bg-green-50 text-green-600 rounded hover:bg-green-100 mt-1"
-                                    >
-                                        Dispatch
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </motion.div>
-            </div>
-
-            {/* Top Products */}
-            <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="bg-white rounded-xl p-4 border border-gray-100"
-            >
-                <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-sm font-medium text-gray-700">🏆 Top Selling Products</h2>
-                    <Link to="/admin/reports/products" className="text-xs text-blue-600 hover:text-blue-700">
-                        Full report
+                        <ArrowTrendingUpIcon className="w-4 h-4" />
+                        Refresh Data
+                    </button>
+                    <Link
+                        to="/admin/products/add"
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-all shadow-md shadow-blue-100"
+                    >
+                        <CubeIcon className="w-4 h-4" />
+                        Add Product
                     </Link>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    {topProducts.map((product) => (
-                        <div key={product.id} className="p-3 bg-gray-50 rounded-lg">
-                            <div className="flex items-center gap-2 mb-2">
-                                <div className={`w-2 h-2 rounded-full ${
-                                    product.brand === 'leblue' ? 'bg-blue-500' : 'bg-amber-500'
-                                }`} />
-                                <span className="text-sm font-medium text-gray-900">{product.name}</span>
-                            </div>
-                            <p className="text-xs text-gray-500">Sales: {product.sales} units</p>
-                            <p className="text-xs text-gray-500">Revenue: ₨ {product.revenue.toLocaleString()}</p>
-                        </div>
-                    ))}
-                </div>
-            </motion.div>
+            </div>
 
-            {/* Manufacturing Overview */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-white rounded-xl p-4 border border-gray-100">
-                    <p className="text-xs text-gray-500 mb-1">Daily Production</p>
-                    <p className="text-xl font-semibold text-gray-900">2,500</p>
-                    <p className="text-xs text-emerald-600 mt-1">↑ 12% from yesterday</p>
-                </div>
-                <div className="bg-white rounded-xl p-4 border border-gray-100">
-                    <p className="text-xs text-gray-500 mb-1">Bottles in Stock</p>
-                    <p className="text-xl font-semibold text-gray-900">12.5k</p>
-                    <p className="text-xs text-gray-400 mt-1">87% capacity</p>
-                </div>
-                <div className="bg-white rounded-xl p-4 border border-gray-100">
-                    <p className="text-xs text-gray-500 mb-1">Active Routes</p>
-                    <p className="text-xl font-semibold text-gray-900">23</p>
-                    <p className="text-xs text-gray-400 mt-1">Covering 8 cities</p>
-                </div>
-                <div className="bg-white rounded-xl p-4 border border-gray-100">
-                    <p className="text-xs text-gray-500 mb-1">Quality Control</p>
-                    <p className="text-xl font-semibold text-gray-900">99.9%</p>
-                    <p className="text-xs text-green-600 mt-1">Pass rate</p>
-                </div>
+            {/* Premium Stats Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+                {statCards.map((stat, index) => {
+                    const Icon = stat.icon;
+                    return (
+                        <motion.div
+                            key={stat.title}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.1 }}
+                        >
+                            <Link to={stat.link} className="group block h-full">
+                                <div className="bg-white rounded-2xl p-6 border border-gray-100 h-full hover:shadow-xl hover:shadow-gray-200/50 transition-all duration-300 relative overflow-hidden">
+                                    {/* Decorative background circle */}
+                                    <div className={`absolute -right-4 -top-4 w-24 h-24 ${stat.bg} rounded-full opacity-50 group-hover:scale-110 transition-transform duration-500`}></div>
+
+                                    <div className="relative z-10">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className={`w-12 h-12 ${stat.bg} rounded-xl flex items-center justify-center`}>
+                                                <Icon className={`w-6 h-6 ${stat.color}`} />
+                                            </div>
+                                            {stat.badge > 0 && (
+                                                <div className="flex flex-col items-end">
+                                                    <span className="flex h-2 w-2 relative">
+                                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <div className="flex items-baseline gap-2">
+                                                <h3 className="text-2xl font-bold text-gray-900 leading-none">
+                                                    {stat.value}
+                                                </h3>
+                                                {stat.trend && (
+                                                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 ${stat.trendUp ? 'text-emerald-600 bg-emerald-50' : 'text-red-600 bg-red-50'}`}>
+                                                        {stat.trendUp ? <ArrowUpIcon className="w-3 h-3" /> : <ArrowDownIcon className="w-3 h-3" />}
+                                                        {stat.trend}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider text-[10px]">
+                                                {stat.title}
+                                            </p>
+                                            <p className="text-xs text-gray-400 font-medium">
+                                                {stat.subValue}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Link>
+                        </motion.div>
+                    );
+                })}
+            </div>
+
+            {/* Charts Section */}
+            <div className="grid lg:grid-cols-2 gap-8">
+                {/* Traffic / Messages Chart */}
+                <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm"
+                >
+                    <div className="flex items-center justify-between mb-8">
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-900">Message Trends</h2>
+                            <p className="text-sm text-gray-500 mt-1">Customer inquiries over the last 7 days</p>
+                        </div>
+                        <div className="p-2 bg-blue-50 rounded-lg">
+                            <ArrowTrendingUpIcon className="w-5 h-5 text-blue-600" />
+                        </div>
+                    </div>
+
+                    <div className="h-[300px] w-full">
+                        {chartData.messages.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={chartData.messages}>
+                                    <defs>
+                                        <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1} />
+                                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                    <XAxis
+                                        dataKey="date"
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fill: '#64748b', fontSize: 12 }}
+                                        dy={10}
+                                    />
+                                    <YAxis
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fill: '#64748b', fontSize: 12 }}
+                                    />
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                                    />
+                                    <Area
+                                        type="monotone"
+                                        dataKey="count"
+                                        stroke="#3b82f6"
+                                        strokeWidth={3}
+                                        fillOpacity={1}
+                                        fill="url(#colorCount)"
+                                        animationDuration={2000}
+                                    />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="h-full flex items-center justify-center bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                                <p className="text-gray-400 text-sm">Not enough data to display trends yet</p>
+                            </div>
+                        )}
+                    </div>
+                </motion.div>
+
+                {/* Categories Distribution */}
+                <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm"
+                >
+                    <div className="flex items-center justify-between mb-8">
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-900">Inventory Split</h2>
+                            <p className="text-sm text-gray-500 mt-1">Product distribution by category</p>
+                        </div>
+                        <div className="p-2 bg-emerald-50 rounded-lg">
+                            <FunnelIcon className="w-5 h-5 text-emerald-600" />
+                        </div>
+                    </div>
+
+                    <div className="h-[300px] w-full flex items-center justify-center">
+                        {chartData.categories.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={chartData.categories}
+                                        innerRadius={80}
+                                        outerRadius={100}
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                        animationBegin={500}
+                                        animationDuration={1500}
+                                    >
+                                        {chartData.categories.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip />
+                                    <Legend
+                                        verticalAlign="bottom"
+                                        height={36}
+                                        iconType="circle"
+                                        formatter={(value) => <span className="text-xs font-medium text-gray-600">{value}</span>}
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="h-full w-full flex items-center justify-center bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                                <p className="text-gray-400 text-sm">No category data available</p>
+                            </div>
+                        )}
+                    </div>
+                </motion.div>
+            </div>
+
+            {/* Bottom Section - Lists */}
+            <div className="grid lg:grid-cols-2 gap-8">
+                {/* Recent Inquiries */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
+                >
+                    <div className="p-6 border-b border-gray-50 flex items-center justify-between bg-white sticky top-0 z-10">
+                        <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                            <EnvelopeIcon className="w-5 h-5 text-indigo-500" />
+                            Recent Inquiries
+                        </h2>
+                        <Link to="/admin/messages" className="text-xs font-bold text-blue-600 uppercase tracking-widest hover:text-blue-700">
+                            View All Inquiries
+                        </Link>
+                    </div>
+
+                    <div className="divide-y divide-gray-50">
+                        {recentActivity.length > 0 ? (
+                            recentActivity.map((activity, i) => (
+                                <motion.div
+                                    key={i}
+                                    whileHover={{ x: 4 }}
+                                    className="group flex items-start gap-4 p-5 hover:bg-gray-50/50 transition-all cursor-pointer"
+                                    onClick={() => (window.location.href = `/admin/messages/${activity.id}`)}
+                                >
+                                    <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                                        <EnvelopeIcon className="w-5 h-5 text-indigo-600" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <p className="text-sm font-bold text-gray-900 truncate">
+                                                {activity.name}
+                                            </p>
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tabular-nums">
+                                                {formatTime(activity.time)}
+                                            </span>
+                                        </div>
+                                        <p className="text-sm text-gray-600 font-medium truncate mb-1">
+                                            {activity.subject || 'No Subject'}
+                                        </p>
+                                        <p className="text-xs text-gray-400 line-clamp-1">
+                                            {activity.message || 'Click to view the full message content and reply...'}
+                                        </p>
+                                    </div>
+                                </motion.div>
+                            ))
+                        ) : (
+                            <div className="p-12 text-center">
+                                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <EnvelopeIcon className="w-8 h-8 text-gray-300" />
+                                </div>
+                                <p className="text-gray-500 font-medium">No recent inquiries found</p>
+                            </div>
+                        )}
+                    </div>
+                </motion.div>
+
+                {/* Stock Watchlist */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
+                >
+                    <div className="p-6 border-b border-gray-50 flex items-center justify-between bg-white sticky top-0 z-10">
+                        <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                            <ExclamationTriangleIcon className="w-5 h-5 text-amber-500" />
+                            Stock Watchlist
+                        </h2>
+                        <Link to="/admin/products/inventory" className="text-xs font-bold text-blue-600 uppercase tracking-widest hover:text-blue-700">
+                            Inventory Center
+                        </Link>
+                    </div>
+
+                    <div className="divide-y divide-gray-50">
+                        {lowStockAlerts.length > 0 ? (
+                            lowStockAlerts.map((product) => (
+                                <motion.div
+                                    key={product.id}
+                                    whileHover={{ x: 4 }}
+                                    className="flex items-center justify-between p-5 hover:bg-gray-50/50 transition-all cursor-pointer"
+                                    onClick={() => (window.location.href = `/admin/products/inventory/adjust/${product.id}`)}
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-3 h-3 rounded-full ${product.stock_quantity <= 0 ? 'bg-red-500 animate-pulse' : 'bg-amber-500'
+                                            }`} />
+                                        <div>
+                                            <p className="text-sm font-bold text-gray-900 uppercase tracking-tighter">{product.name}</p>
+                                            <p className="text-xs text-gray-500 font-medium">
+                                                Current level: {product.stock_quantity} {product.unit || 'units'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider ${product.stock_quantity <= 0 ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'
+                                            }`}>
+                                            {product.stock_quantity <= 0 ? 'Out of Stock' : `${Math.round((product.stock_quantity / product.min_stock_level) * 100)}% of Min`}
+                                        </span>
+                                    </div>
+                                </motion.div>
+                            ))
+                        ) : (
+                            <div className="p-12 text-center">
+                                <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <CheckCircleIcon className="w-8 h-8 text-emerald-300" />
+                                </div>
+                                <p className="text-gray-500 font-medium">Your inventory levels are perfect!</p>
+                                <p className="text-xs text-gray-400 mt-1">All products are above minimum stock levels.</p>
+                            </div>
+                        )}
+                    </div>
+                </motion.div>
             </div>
         </div>
     );

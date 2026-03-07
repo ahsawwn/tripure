@@ -1,7 +1,46 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import axios from 'axios';
+import toast from 'react-hot-toast';
 
 const ContactSection = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    subject: '',
+    message: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+  const handleChange = (e) => {
+    setFormData(prev => ({
+      ...prev,
+      [e.target.name]: e.target.value
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.name || !formData.email || !formData.message) {
+      toast.error('Please fill all required fields');
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await axios.post(`${API_URL}/contact/submit`, formData);
+      if (response.data.success) {
+        toast.success('Message sent successfully!');
+        setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to send message');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <section className="w-full py-24 bg-white">
       <div className="container-custom">
@@ -17,11 +56,11 @@ const ContactSection = () => {
             <span className="text-sm uppercase tracking-[0.3em] text-blue-600 font-medium">
               Visit Us
             </span>
-            
+
             <h2 className="text-4xl md:text-5xl font-light text-gray-900">
               Get in <span className="text-gray-400">Touch</span>
             </h2>
-            
+
             <p className="text-gray-600 leading-relaxed">
               Visit our facility in Jhelum or contact us for bulk orders, partnerships, or any questions about our products.
             </p>
@@ -76,41 +115,63 @@ const ContactSection = () => {
             className="bg-gray-50 rounded-3xl p-8 shadow-lg"
           >
             <h3 className="text-2xl font-light text-gray-900 mb-6">Send a Message</h3>
-            
-            <form className="space-y-4">
-              <input 
-                type="text" 
-                placeholder="Your Name"
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                placeholder="Your Name *"
+                required
                 className="w-full px-4 py-3 bg-white rounded-xl border border-gray-200 focus:border-blue-400 focus:outline-none transition-colors"
               />
-              <input 
-                type="email" 
-                placeholder="Email Address"
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="Email Address *"
+                required
                 className="w-full px-4 py-3 bg-white rounded-xl border border-gray-200 focus:border-blue-400 focus:outline-none transition-colors"
               />
-              <input 
-                type="tel" 
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
                 placeholder="Phone Number"
                 className="w-full px-4 py-3 bg-white rounded-xl border border-gray-200 focus:border-blue-400 focus:outline-none transition-colors"
               />
-              <select className="w-full px-4 py-3 bg-white rounded-xl border border-gray-200 focus:border-blue-400 focus:outline-none transition-colors">
-                <option>Select Product</option>
-                <option>Vatistsa</option>
-                <option>Le Blue</option>
-                <option>Both / Bulk Order</option>
+              <select
+                name="subject"
+                value={formData.subject}
+                onChange={handleChange}
+                className="w-full px-4 py-3 bg-white rounded-xl border border-gray-200 focus:border-blue-400 focus:outline-none transition-colors"
+              >
+                <option value="">Select Product Enquiry</option>
+                <option value="Vatistsa">Vatistsa</option>
+                <option value="Le Blue">Le Blue</option>
+                <option value="Bulk Order">Both / Bulk Order</option>
               </select>
-              <textarea 
+              <textarea
                 rows="4"
-                placeholder="Your Message"
+                name="message"
+                value={formData.message}
+                onChange={handleChange}
+                placeholder="Your Message *"
+                required
                 className="w-full px-4 py-3 bg-white rounded-xl border border-gray-200 focus:border-blue-400 focus:outline-none transition-colors"
               ></textarea>
-              
+
               <motion.button
+                type="submit"
+                disabled={loading}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className="w-full py-3 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-colors"
+                className="w-full py-3 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Send Message
+                {loading ? 'Sending...' : 'Send Message'}
               </motion.button>
             </form>
           </motion.div>

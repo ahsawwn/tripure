@@ -1,386 +1,395 @@
-import React, { useState, useEffect } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useNotifications } from '../contexts/NotificationContext';
+import React, { useState, useEffect } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "../contexts/AuthContext";
+import { useNotifications } from "../contexts/NotificationContext";
 
 const Sidebar = ({ isExpanded, isMobile, isMobileOpen, closeSidebar, toggleSidebar }) => {
-    const location = useLocation();
-    const [openMenu, setOpenMenu] = useState(null);
-    const { unreadCount = 0 } = useNotifications() || {};
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { unreadCount = 0 } = useNotifications() || {};
+  const [openDropdown, setOpenDropdown] = useState(null);
+  const [pendingNavigation, setPendingNavigation] = useState(null);
 
-    // Helper function to check if a single menu item is active
-    const isSingleMenuItemActive = (itemPath) => {
-        return location.pathname === itemPath;
-    };
+  // Close mobile on route change
+  useEffect(() => {
+    if (isMobile && isMobileOpen) {
+      closeSidebar();
+    }
+  }, [location.pathname]);
 
-    const menuItems = [
-        {
-            title: 'Dashboard',
-            icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                </svg>
-            ),
-            path: '/admin/dashboard'
-        },
-        {
-            title: 'Messages',
-            icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                </svg>
-            ),
-            badge: unreadCount,
-            children: [
-                { title: 'All Messages', path: '/admin/messages' },
-                { title: 'Unread', path: '/admin/messages?status=new' },
-                { title: 'Urgent', path: '/admin/messages?priority=urgent' },
-                { title: 'Archived', path: '/admin/messages?status=archived' }
-            ]
-        },
-        {
-            title: 'Bulk Orders',
-            icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-            ),
-            badge: 3,
-            children: [
-                { title: 'All Orders', path: '/admin/bulk-orders' },
-                { title: 'Pending', path: '/admin/bulk-orders?status=pending' },
-                { title: 'Quoted', path: '/admin/bulk-orders?status=quoted' },
-                { title: 'Completed', path: '/admin/bulk-orders?status=completed' }
-            ]
-        },
-        {
-            title: 'Products',
-            icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-            ),
-            children: [
-                { title: 'All Products', path: '/admin/products' },
-                { title: 'Add Product', path: '/admin/products/add' },
-                { title: 'Categories', path: '/admin/products/categories' },
-                { title: 'Inventory', path: '/admin/inventory' }
-            ]
-        },
-        {
-            title: 'Orders',
-            icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                </svg>
-            ),
-            badge: 2,
-            children: [
-                { title: 'All Orders', path: '/admin/orders' },
-                { title: 'Pending', path: '/admin/orders/pending' },
-                { title: 'Processing', path: '/admin/orders/processing' },
-                { title: 'Completed', path: '/admin/orders/completed' },
-                { title: 'Cancelled', path: '/admin/orders/cancelled' }
-            ]
-        },
-        {
-            title: 'Customers',
-            icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-            ),
-            path: '/admin/customers'
-        },
-        {
-            title: 'Reports',
-            icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-            ),
-            children: [
-                { title: 'Sales Report', path: '/admin/reports/sales' },
-                { title: 'Inventory Report', path: '/admin/reports/inventory' },
-                { title: 'Customer Report', path: '/admin/reports/customers' },
-                { title: 'Analytics', path: '/admin/reports/analytics' }
-            ]
-        },
-        {
-            title: 'Users',
-            icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-            ),
-            path: '/admin/users'
-        },
-        {
-            title: 'Settings',
-            icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-            ),
-            children: [
-                { title: 'General', path: '/admin/settings' },
-                { title: 'Profile', path: '/admin/settings/profile' },
-                { title: 'Security', path: '/admin/settings/security' },
-                { title: 'Notifications', path: '/admin/settings/notifications' }
-            ]
-        }
-    ];
+  // Handle navigation after expand
+  useEffect(() => {
+    if (pendingNavigation && isExpanded) {
+      navigate(pendingNavigation);
+      setPendingNavigation(null);
+    }
+  }, [pendingNavigation, isExpanded, navigate]);
 
-    // Check which menu should be open based on current path
-    useEffect(() => {
-        const activeMenuItem = menuItems.find(item => 
-            item.children?.some(child => 
-                location.pathname.includes(child.path.split('?')[0])
-            )
-        );
-        setOpenMenu(activeMenuItem?.title || null);
-    }, [location.pathname]);
+  // Check if current path is messages page
+  const isMessagesPage = location.pathname.includes('/admin/messages');
 
-    const handleMenuClick = (title) => {
-        setOpenMenu(openMenu === title ? null : title);
-    };
 
-    const isMenuItemActive = (item) => {
-        if (item.path && location.pathname === item.path) return true;
-        if (item.children) {
-            return item.children.some(child => 
-                location.pathname.includes(child.path.split('?')[0])
-            );
-        }
-        return false;
-    };
+  // Menu items with beautiful icons
+  const menuItems = [
+    {
+      id: "dashboard",
+      title: "Dashboard",
+      path: "/admin/dashboard",
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+      ),
+    },
+    {
+      id: "sales",
+      title: "Sales & Billing",
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+        </svg>
+      ),
+      children: [
+        { title: "Orders Ledger", path: "/admin/orders" },
+        { title: "Invoices", path: "/admin/invoices" },
+        { title: "Bulk Quotations", path: "/admin/bulk-orders" },
+      ],
+    },
+    {
+      id: "crm",
+      title: "CRM",
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+      ),
+      children: [
+        { title: "All Customers", path: "/admin/customers" },
+        { title: "Distributors", path: "/admin/distributors" },
+        { title: "Contact Enquiries", path: "/admin/contacts" },
+      ],
+    },
+    {
+      id: "products",
+      title: "Inventory",
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        </svg>
+      ),
+      children: [
+        { title: "Live Stock", path: "/admin/products/inventory" },
+        { title: "Product Catalog", path: "/admin/products" },
+        { title: "Categories", path: "/admin/products/categories" },
+        { title: "Manufacturer Brands", path: "/admin/products/brands" },
+      ],
+    },
+    {
+      id: "messages",
+      title: "Communications",
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+        </svg>
+      ),
+      badge: unreadCount,
+      children: [
+        { title: "Internal Mailbox", path: "/admin/messages" },
+        { title: "Compose Draft", path: "/admin/messages/compose" },
+        { title: "Response Templates", path: "/admin/messages/templates" },
+      ],
+    },
+    {
+      id: "users",
+      title: "Administration",
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+      ),
+      children: [
+        { title: "Staff Directory", path: "/admin/users" },
+        { title: "System Security", path: "/admin/users/activity-logs" },
+        { title: "App Settings", path: "/admin/settings" },
+      ],
+    },
+  ];
 
-    const isChildActive = (childPath) => {
-        return location.pathname.includes(childPath.split('?')[0]);
-    };
-
-    // Handle navigation when sidebar is collapsed
-    const handleNavClick = (item) => {
-        if (!isExpanded && !isMobile && item.children) {
-            // If sidebar is collapsed and item has children, expand the sidebar
-            toggleSidebar();
-        }
-        if (isMobile) {
-            closeSidebar();
-        }
-    };
-
-    return (
-        <>
-            {/* Mobile Overlay */}
-            <AnimatePresence>
-                {isMobileOpen && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 0.5 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black z-40"
-                        onClick={closeSidebar}
-                    />
-                )}
-            </AnimatePresence>
-
-            {/* Sidebar */}
-            <motion.aside
-                initial={false}
-                animate={{
-                    x: isMobile ? (isMobileOpen ? 0 : '-100%') : 0,
-                    width: isMobile ? 280 : (isExpanded ? 280 : 80)
-                }}
-                transition={{ duration: 0.3, ease: 'easeInOut' }}
-                className="fixed top-0 left-0 z-50 h-full bg-white border-r border-gray-200 shadow-lg overflow-hidden flex flex-col"
-            >
-                {/* Logo Area */}
-                <div className="h-16 flex items-center px-4 border-b border-gray-100 flex-shrink-0">
-                    {isExpanded || isMobile ? (
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                                <span className="text-white font-bold text-lg">T</span>
-                            </div>
-                            <div>
-                                <h2 className="text-lg font-semibold text-gray-800">Tripure</h2>
-                                <p className="text-xs text-gray-500">Admin</p>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="w-full flex justify-center">
-                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                                <span className="text-white font-bold text-lg">T</span>
-                            </div>
-                        </div>
-                    )}
-                    
-                    {/* Mobile Close Button */}
-                    {isMobile && (
-                        <button
-                            onClick={closeSidebar}
-                            className="ml-auto p-2 hover:bg-gray-100 rounded-lg"
-                        >
-                            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    )}
-                </div>
-
-                {/* Navigation */}
-                <nav className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-50 py-4">
-                    <div className="px-2 space-y-1">
-                        {menuItems.map((item) => (
-                            <div key={item.title}>
-                                {item.children ? (
-                                    // Dropdown Menu
-                                    <div>
-                                        <button
-                                            onClick={() => {
-                                                handleMenuClick(item.title);
-                                                handleNavClick(item);
-                                            }}
-                                            className={`w-full flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 ${
-                                                isMenuItemActive(item)
-                                                    ? 'bg-blue-50 text-blue-600'
-                                                    : 'text-gray-700 hover:bg-gray-50'
-                                            } ${!isExpanded && !isMobile ? 'justify-center' : 'justify-between'}`}
-                                        >
-                                            <div className={`flex items-center gap-3 min-w-0 ${!isExpanded && !isMobile ? '' : 'flex-1'}`}>
-                                                <span className={isMenuItemActive(item) ? 'text-blue-600' : 'text-gray-500'}>
-                                                    {item.icon}
-                                                </span>
-                                                {(isExpanded || isMobile) && (
-                                                    <span className="text-sm font-medium truncate">{item.title}</span>
-                                                )}
-                                            </div>
-                                            {(isExpanded || isMobile) && (
-                                                <div className="flex items-center gap-2 flex-shrink-0">
-                                                    {item.badge > 0 && (
-                                                        <span className="px-2 py-0.5 text-xs bg-red-100 text-red-600 rounded-full">
-                                                            {item.badge}
-                                                        </span>
-                                                    )}
-                                                    <svg
-                                                        className={`w-4 h-4 transition-transform duration-200 ${
-                                                            openMenu === item.title ? 'rotate-180' : ''
-                                                        }`}
-                                                        fill="none"
-                                                        stroke="currentColor"
-                                                        viewBox="0 0 24 24"
-                                                    >
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                                                    </svg>
-                                                </div>
-                                            )}
-                                        </button>
-
-                                        <AnimatePresence>
-                                            {openMenu === item.title && (isExpanded || isMobile) && (
-                                                <motion.div
-                                                    initial={{ height: 0, opacity: 0 }}
-                                                    animate={{ height: 'auto', opacity: 1 }}
-                                                    exit={{ height: 0, opacity: 0 }}
-                                                    className="overflow-hidden"
-                                                >
-                                                    <div className="pl-11 pr-3 py-1 space-y-1">
-                                                        {item.children.map((child) => (
-                                                            <NavLink
-                                                                key={child.path}
-                                                                to={child.path}
-                                                                onClick={() => {
-                                                                    if (isMobile) closeSidebar();
-                                                                }}
-                                                                className={({ isActive }) =>
-                                                                    `block py-2 px-3 text-sm rounded-lg transition-all duration-200 ${
-                                                                        isChildActive(child.path)
-                                                                            ? 'bg-blue-600 text-white font-medium'
-                                                                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                                                    }`
-                                                                }
-                                                            >
-                                                                {child.title}
-                                                            </NavLink>
-                                                        ))}
-                                                    </div>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-                                    </div>
-                                ) : (
-                                    // Single Menu Item
-                                    <NavLink
-                                        to={item.path}
-                                        onClick={() => {
-                                            if (isMobile) closeSidebar();
-                                            handleNavClick(item);
-                                        }}
-                                        className={({ isActive }) =>
-                                            `flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 ${
-                                                isSingleMenuItemActive(item.path)
-                                                    ? 'bg-blue-600 text-white'
-                                                    : 'text-gray-700 hover:bg-gray-50'
-                                            } ${!isExpanded && !isMobile ? 'justify-center' : ''}`
-                                        }
-                                    >
-                                        <div className={`flex items-center gap-3 min-w-0 ${!isExpanded && !isMobile ? '' : 'flex-1'}`}>
-                                            <span className={isSingleMenuItemActive(item.path) ? 'text-white' : 'text-gray-500'}>
-                                                {item.icon}
-                                            </span>
-                                            {(isExpanded || isMobile) && (
-                                                <span className="text-sm font-medium truncate">{item.title}</span>
-                                            )}
-                                        </div>
-                                        {(isExpanded || isMobile) && item.badge > 0 && (
-                                            <span className="px-2 py-0.5 text-xs bg-red-100 text-red-600 rounded-full flex-shrink-0">
-                                                {item.badge}
-                                            </span>
-                                        )}
-                                    </NavLink>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                </nav>
-
-                {/* Collapse/Expand Button - Desktop Only */}
-                {!isMobile && (
-                    <div className="border-t border-gray-100 p-3 flex-shrink-0">
-                        <button
-                            onClick={toggleSidebar}
-                            className={`w-full flex items-center px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-gray-600 ${
-                                !isExpanded ? 'justify-center' : 'justify-start'
-                            }`}
-                        >
-                            <svg
-                                className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? '' : 'rotate-180'}`}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                            </svg>
-                            {isExpanded && <span className="text-sm ml-2">Collapse</span>}
-                        </button>
-                    </div>
-                )}
-            </motion.aside>
-
-            {/* Mobile Menu Button */}
-            {isMobile && !isMobileOpen && (
-                <button
-                    onClick={toggleSidebar}
-                    className="fixed bottom-4 right-4 z-50 w-12 h-12 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-700 transition-colors"
-                >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                </button>
-            )}
-        </>
+  // Check if parent is active
+  const isParentActive = (children) => {
+    return children?.some(
+      (child) =>
+        location.pathname === child.path ||
+        location.pathname.startsWith(child.path + "/")
     );
+  };
+
+  // Handle parent click in collapsed state
+  const handleParentClick = (itemId) => {
+    if (!isExpanded && !isMobile) {
+      // First expand the sidebar
+      toggleSidebar();
+      // Then open the dropdown after expansion
+      setTimeout(() => {
+        setOpenDropdown(itemId);
+      }, 200);
+    } else {
+      // Normal toggle
+      setOpenDropdown(openDropdown === itemId ? null : itemId);
+    }
+  };
+
+  // Handle child click in collapsed state
+  const handleChildClick = (e, path) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!isExpanded && !isMobile) {
+      // First expand the sidebar
+      toggleSidebar();
+      // Set pending navigation to happen after expansion
+      setPendingNavigation(path);
+    } else {
+      // Normal navigation
+      navigate(path);
+    }
+    if (isMobile) {
+      closeSidebar();
+    }
+  };
+
+  return (
+    <>
+      {/* Mobile Overlay */}
+      <AnimatePresence>
+        {isMobile && isMobileOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.4 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black z-40 lg:hidden"
+            onClick={closeSidebar}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Sidebar - Light Theme */}
+      <motion.aside
+        initial={false}
+        animate={{
+          x: isMobile ? (isMobileOpen ? 0 : "-100%") : 0,
+          width: isMobile ? 280 : isExpanded ? 280 : 80,
+        }}
+        transition={{ duration: 0.2 }}
+        className="fixed top-0 left-0 z-50 h-full bg-white border-r border-gray-200 shadow-lg flex flex-col overflow-hidden"
+      >
+        {/* Logo */}
+        <div className="h-20 flex items-center px-6 border-b border-gray-100 flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-md">
+              <span className="text-white font-bold text-xl">T</span>
+            </div>
+            {(isExpanded || isMobile) && (
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Tripure</h2>
+                <p className="text-xs text-gray-500">Admin Dashboard</p>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile Close Button */}
+          {isMobile && isMobileOpen && (
+            <button
+              onClick={closeSidebar}
+              className="ml-auto p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {/* Navigation */}
+        <div className="flex-1 overflow-y-auto py-6 px-3 space-y-1 scrollbar-thin scrollbar-thumb-gray-300">
+          {menuItems.map((item) => {
+            const hasChildren = !!item.children;
+            const parentActive = isParentActive(item.children);
+            const isOpen = openDropdown === item.id;
+
+            return (
+              <div key={item.id}>
+                {hasChildren ? (
+                  /* Dropdown Button */
+                  <button
+                    onClick={() => handleParentClick(item.id)}
+                    className={`w-full flex items-center px-4 py-3 rounded-xl transition-all ${parentActive
+                      ? "bg-blue-50 text-blue-600"
+                      : "text-gray-700 hover:bg-gray-50"
+                      } ${!isExpanded && !isMobile ? "justify-center" : ""}`}
+                  >
+                    <span className="text-gray-600">{item.icon}</span>
+
+                    {(isExpanded || isMobile) && (
+                      <>
+                        <span className="ml-3 text-sm font-medium flex-1 text-left">
+                          {item.title}
+                        </span>
+                        {item.badge > 0 && (
+                          <span className="mr-2 text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">
+                            {item.badge}
+                          </span>
+                        )}
+                        <svg
+                          className={`w-4 h-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""
+                            }`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  /* Single Link */
+                  <NavLink
+                    to={item.path}
+                    onClick={() => isMobile && closeSidebar()}
+                    className={({ isActive }) =>
+                      `flex items-center px-4 py-3 rounded-xl transition-all ${isActive
+                        ? "bg-blue-600 text-white shadow-md"
+                        : "text-gray-700 hover:bg-gray-50"
+                      } ${!isExpanded && !isMobile ? "justify-center" : ""}`
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <span className={isActive ? "text-white" : "text-gray-600"}>
+                          {item.icon}
+                        </span>
+
+                        {(isExpanded || isMobile) && (
+                          <>
+                            <span className="ml-3 text-sm font-medium flex-1 text-left">
+                              {item.title}
+                            </span>
+                            {item.badge > 0 && (
+                              <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">
+                                {item.badge}
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </>
+                    )}
+                  </NavLink>
+                )}
+
+                {/* Dropdown Children */}
+                <AnimatePresence>
+                  {hasChildren && isOpen && (isExpanded || isMobile) && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="pl-12 pr-3 py-2 space-y-1">
+                        {item.children.map((child) => (
+                          <button
+                            key={child.path}
+                            onClick={(e) => handleChildClick(e, child.path)}
+                            className={`w-full text-left py-2 px-3 text-sm rounded-lg transition ${location.pathname === child.path
+                              ? "bg-blue-600 text-white font-medium"
+                              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                              }`}
+                          >
+                            {child.title}
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* User Profile - Light Theme */}
+        <div className="border-t border-gray-100 p-4 bg-white flex-shrink-0">
+          <div className={`flex items-center ${!isExpanded && !isMobile ? "justify-center" : "gap-3"}`}>
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center font-bold text-white shadow-md flex-shrink-0">
+              {user?.name?.charAt(0) || user?.username?.charAt(0) || "A"}
+            </div>
+
+            {(isExpanded || isMobile) && (
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-800 truncate">
+                  {user?.name || user?.username || "Admin User"}
+                </p>
+                <p className="text-xs text-gray-500 capitalize truncate">
+                  {user?.role?.replace("_", " ") || "administrator"}
+                </p>
+              </div>
+            )}
+
+            {/* Logout Button */}
+            {(isExpanded || isMobile) && (
+              <button
+                onClick={() => {
+                  localStorage.removeItem('token');
+                  window.location.href = '/admin/login';
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Logout"
+              >
+                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {/* Collapse Button - Desktop only */}
+          {!isMobile && (
+            <button
+              onClick={toggleSidebar}
+              className={`w-full mt-3 flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all text-gray-700 ${!isExpanded && "justify-center"
+                }`}
+            >
+              <svg
+                className={`w-4 h-4 transition-transform ${isExpanded ? "" : "rotate-180"}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+              </svg>
+              {isExpanded && <span className="text-sm">Collapse</span>}
+            </button>
+          )}
+        </div>
+      </motion.aside>
+
+      {/* Mobile Menu Button */}
+      {isMobile && !isMobileOpen && (
+        <button
+          onClick={toggleSidebar}
+          className="fixed bottom-4 right-4 z-50 w-14 h-14 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-shadow"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      )}
+    </>
+  );
 };
 
 export default Sidebar;

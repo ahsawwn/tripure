@@ -41,3 +41,13 @@ cd /home/wbinjagxas/tripure.rookies-demo.online/backend/tirpure-api
 # 3. Now you can use PM2
 pm2 status
 pm2 logs tripure-api
+
+
+
+
+
+admin@rookies-demo.online
+iE206z(g
+
+
+curl -X POST http://localhost:5000/api/test/create-customer \ -H "Content-Type: application/json" \ -d '{"name":"Test User","email":"test@example.com","phone":"123456789","company":"Test Corp"}'

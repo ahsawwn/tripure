@@ -1,6 +1,6 @@
 {
   "name": "tripure",
-  "homepage": "https://tripure.rookies-demo.online/",
+  "homepage": "https://tripure.com.pk/",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -26,6 +26,7 @@
     "react-hook-form": "^7.71.2",
     "react-hot-toast": "^2.6.0",
     "react-router-dom": "^7.13.1",
+    "react-select": "^5.10.2",
     "recharts": "^3.7.0"
   },
   "devDependencies": {
