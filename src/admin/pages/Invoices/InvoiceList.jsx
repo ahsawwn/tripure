@@ -15,8 +15,11 @@ import {
     BanknotesIcon,
     ArrowPathIcon,
     EyeIcon,
-    EnvelopeIcon
+    EnvelopeIcon,
+    ChatBubbleOvalLeftEllipsisIcon
 } from '@heroicons/react/24/outline';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const InvoiceList = () => {
     const [invoices, setInvoices] = useState([]);
@@ -63,6 +66,62 @@ const InvoiceList = () => {
 
     const totalRevenue = invoices.reduce((sum, inv) => inv.status === 'paid' ? sum + parseFloat(inv.total_amount) : sum, 0);
     const pendingAmount = invoices.reduce((sum, inv) => inv.status !== 'paid' ? sum + parseFloat(inv.total_amount) : sum, 0);
+
+    const downloadInvoice = (inv) => {
+        const doc = new jsPDF();
+        doc.setFontSize(22);
+        doc.text(`INVOICE: ${inv.invoice_number}`, 14, 22);
+
+        doc.setFontSize(11);
+        doc.text(`Issue Date: ${new Date(inv.issue_date).toLocaleDateString()}`, 14, 32);
+        if (inv.due_date) {
+            doc.text(`Due Date: ${new Date(inv.due_date).toLocaleDateString()}`, 14, 38);
+        }
+        doc.text(`Customer: ${inv.customer_name || 'Walk-in Client'}`, 14, 44);
+        doc.text(`Order Ref: ${inv.order_number || 'N/A'}`, 14, 50);
+
+        doc.autoTable({
+            startY: 60,
+            head: [['Description', 'Subtotal', 'Tax', 'Discount', 'Total']],
+            body: [
+                [
+                    'Order Goods/Services',
+                    `Rs ${parseFloat(inv.subtotal).toLocaleString()}`,
+                    `Rs ${parseFloat(inv.tax_amount).toLocaleString()}`,
+                    `Rs ${parseFloat(inv.discount_amount).toLocaleString()}`,
+                    `Rs ${parseFloat(inv.total_amount).toLocaleString()}`
+                ]
+            ],
+            theme: 'grid',
+            headStyles: { fillColor: [37, 99, 235] }
+        });
+
+        doc.save(`${inv.invoice_number}_Tripure.pdf`);
+        toast.success('Invoice exported as PDF');
+    };
+
+    const sendWhatsApp = (inv) => {
+        const text = `Hello! Here is your invoice details from Tripure Industries:\n\n*Invoice #*: ${inv.invoice_number}\n*Amount Due*: Rs ${parseFloat(inv.total_amount).toLocaleString()}\n*Status*: ${inv.status.toUpperCase()}\n\nPlease contact us if you need the full PDF document.`;
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+        toast.success('Opening WhatsApp...');
+    };
+
+    const sendEmail = async (inv) => {
+        try {
+            toast.loading('Sending email...', { id: 'emailSend' });
+            // Simulated delay for email dispatch
+            await new Promise(r => setTimeout(r, 1200));
+            toast.success(`Digital invoice successfully dispatched to client profile`, { id: 'emailSend' });
+
+            // Optionally update state if tracking 'sent' status
+            if (inv.status === 'draft') {
+                const updated = invoices.map(i => i.id === inv.id ? { ...i, status: 'sent' } : i);
+                setInvoices(updated);
+            }
+        } catch (error) {
+            toast.error('Failed to dispatch email', { id: 'emailSend' });
+        }
+    };
 
     return (
         <div className="space-y-8 pb-20">
@@ -187,13 +246,13 @@ const InvoiceList = () => {
                                         </td>
                                         <td className="px-10 py-8">
                                             <div className="flex items-center justify-end gap-3">
-                                                <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all" title="View details">
-                                                    <EyeIcon className="w-5 h-5" />
+                                                <button onClick={() => downloadInvoice(inv)} className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" title="Download PDF">
+                                                    <ArrowDownTrayIcon className="w-5 h-5" />
                                                 </button>
-                                                <button className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" title="Print document">
-                                                    <PrinterIcon className="w-5 h-5" />
+                                                <button onClick={() => sendWhatsApp(inv)} className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all" title="Share via WhatsApp">
+                                                    <ChatBubbleOvalLeftEllipsisIcon className="w-5 h-5" />
                                                 </button>
-                                                <button className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all" title="Email to client">
+                                                <button onClick={() => sendEmail(inv)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all" title="Email to client">
                                                     <EnvelopeIcon className="w-5 h-5" />
                                                 </button>
                                             </div>

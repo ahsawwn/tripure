@@ -64,6 +64,8 @@ import OrderList from './admin/pages/Orders/OrderList';
 
 // Reports Pages (placeholder)
 import SalesReport from './admin/pages/Reports/SalesReport';
+import InventoryReport from './admin/pages/Reports/InventoryReport';
+import CustomerReport from './admin/pages/Reports/CustomerReport';
 
 // Users Pages
 import UserList from './admin/pages/Users/UserList';
@@ -202,6 +204,8 @@ function AppContent() {
                                         <Route path="reports">
                                             <Route index element={<Navigate to="/admin/reports/sales" replace />} />
                                             <Route path="sales" element={<SalesReport />} />
+                                            <Route path="inventory" element={<InventoryReport />} />
+                                            <Route path="customers" element={<CustomerReport />} />
                                         </Route>
 
                                         {/* Distributors Routes */}
